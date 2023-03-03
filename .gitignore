@@ -1,0 +1,7 @@
+# Files and directories to ignore
+data/
+.ipynb_checkpoints/
+
+.Rhistory
+.RData
+.DS_Store
