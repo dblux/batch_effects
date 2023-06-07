@@ -10,8 +10,8 @@
 
 ## Human dendritic cells
 
-- Tran et al. (2020): Data set 1
 - Villani et al. (2017) 
+- Tran et al. (2020): Data set 1
 
 ## Human pancreas data set
 
