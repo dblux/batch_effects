@@ -1,6 +1,6 @@
 #' Simulate log-transformed gene expression microarray data
 #'
-#' @param p Number of features.
+#' @param m Number of features.
 #' @param n Number of samples.
 #' @param crosstab Matrix of contingency table specifying number of samples in
 #'   each class and batch condition, with classes as rows and batches as columns.
@@ -16,14 +16,14 @@
 #' @param c Inverse scale parameter of the sigmoid function
 #' @param d Midpoint parameter of the sigmoid function
 #' @param dropout Logical indicating whether to perform dropout
-#' @return Matrix of dim (p, n).
+#' @return Matrix of dim (m, n).
 #'
 #' @importFrom extraDistr rlaplace
 #' @export
 simulate_microarray <- function(
   m, n, crosstab = NULL,
   delta = 1, gamma = 1,
-  phi = 0.2, zeta = 1.5,
+  phi = 0.1, zeta = 1.5,
   a = 40, b = 0.2,
   c = 2, d = -6, dropout = TRUE,
   epsilon = 0.5,
@@ -31,7 +31,7 @@ simulate_microarray <- function(
 ) {
   # checks
   stopifnot(n == sum(crosstab))
-  
+  # TODO: default is random 
   set.seed(seed)
 
   n_class <- nrow(crosstab)
@@ -53,7 +53,7 @@ simulate_microarray <- function(
     matrix(rnorm(m * (n_class - 1), 0, zeta), m, n_class - 1)
   )
   n_diffexpr <- round(phi * m, 0)
-  # features not in the top pi percent according to log-fc are set to zero
+  # features not in the top phi percent according to log-fc are set to zero
   rank_rho <- apply(log_rho, 2, function(x) rank(-abs(x)))
   log_rho[rank_rho > n_diffexpr] <- 0
 
@@ -65,7 +65,7 @@ simulate_microarray <- function(
       Z[i, j] <- rnorm(1, log_psi[i] + log_rho[i, g], epsilon)
     }
   }
-  # TODO: able to specify batch effects of different batch
+  # TODO: provide option to specify batch effects magnitude of different batches
   log_beta <- matrix(extraDistr::rlaplace(m * n_batch, 0, delta), m, n_batch)
   
   alpha <- matrix(0, m, n)
