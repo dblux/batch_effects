@@ -2,14 +2,14 @@
 #' 
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
 #' @param batch Vector containing batch labels of samples.
-#' @param class Vector or list of vectors containing class labels of samples.
+#' @param cls Vector or list of vectors containing class labels of samples.
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-RVP <- function(X, batch, class = NULL, ret.obj = FALSE) {
+RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
   if (nrow(X) != length(batch))
     stop("Length of batch does not match number of rows in X!")
-  if (is.vector(class) || is.factor(class))
-    class <- as.character(class)
+  if (is.vector(cls) || is.factor(cls))
+    cls <- as.character(cls)
   if (length(unique(batch)) == 1) {
     # Use NA as is.na works on lists
     return(list(percentage = 0, sum_squares = NA)) # only one batch is present
@@ -19,7 +19,7 @@ RVP <- function(X, batch, class = NULL, ret.obj = FALSE) {
   batch <- as.character(batch)
   
   # COMPUTE RVP 
-  if (is.null(class)) {
+  if (is.null(cls)) {
     feature_means <- colMeans(X)
     ss_total <- colSums(sweep(X, 2, feature_means, `-`) ^ 2)
     X_batches <- split.data.frame(X, batch)
@@ -41,18 +41,18 @@ RVP <- function(X, batch, class = NULL, ret.obj = FALSE) {
     }
   } else {
     ss_total <- colSums(sweep(X, 2, colMeans(X), `-`) ^ 2)
-    # If class is list, splits by all vectors in list 
-    X_classes <- split.data.frame(X, class)
+    # If cls is list, splits by all vectors in list 
+    X_classes <- split.data.frame(X, cls)
     # rm(X)
     X_classes <- Filter(function(X) nrow(X) != 0, X_classes)
     classes_string <- do.call(paste, as.list(names(X_classes)))
     # message(sprintf("Split into classes: %s", classes_string))
-    batch_classes <- split(batch, class)
+    batch_classes <- split(batch, cls)
     batch_classes <- Filter(function(x) length(x) != 0, batch_classes)
     # Warning: recursive call
     objs <- mapply(
       RVP, X_classes, batch_classes,
-      MoreArgs = list(class = NULL, ret.obj = TRUE),
+      MoreArgs = list(cls = NULL, ret.obj = TRUE),
       SIMPLIFY = FALSE
     )
     sumsquares_classes <- lapply(objs, function(obj) obj$sum_squares)
@@ -78,34 +78,65 @@ RVP <- function(X, batch, class = NULL, ret.obj = FALSE) {
 
 #' Calculates percentage of variance in data due to batch effects
 #' 
-#' @param X Dataframe with dim (n_samples, n_features).
+#' @param sce SingleCellExperiment object 
 #' @param batchname Character vector of column name of colData representing batch information.
 #' @param classname Character vector of column name/s of colData representing class information.
 #' @param assayname Character vector of assay name of SCE object. By default
 #'   the first assay is used.
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
+#' @import SingleCellExperiment, Matrix
 RVP.SingleCellExperiment <- function(
   sce, batchname, classname, assayname = NULL, ret.obj = FALSE
 ) {
   X <- if (is.null(assayname)) {
-    t(assay(sce))
+    Matrix::t(assay(sce))
   } else {
-    t(assay(sce, assayname))
+    Matrix::t(assay(sce, assayname))
   }
-  batch <- colData(sce)[[batchname]]
-  class <- if (length(classname) > 1) {
-    lapply(classname, function(name) colData(sce)[[name]])
+  batch <- sce[[batchname]]
+  cls <- if (length(classname) > 1) {
+    lapply(classname, function(name) sce[[name]])
   } else {
-    colData(sce)[[classname]]
+    sce[[classname]]
   }
   
-  return(RVP(X, batch, class, ret.obj))
+  return(RVP(X, batch, cls, ret.obj))
+}
+
+
+#' Calculates percentage of variance in data due to batch effects
+#' 
+#' @param obj Seurat object
+#' @param batchname Character vector of column name of colData representing batch information.
+#' @param classname Character vector of column name/s of colData representing class information.
+#' @param assayname Character vector of assay name of SCE object. By default
+#'   the first assay is used.
+#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @return numeric indicating total percentage of variance in data due to batch effects.
+#' @import Seurat, Matrix 
+RVP.Seurat <- function(
+  obj, batchname, classname, assayname = NULL, ret.obj = FALSE
+) {
+  X <- if (is.null(assayname)) {
+    Matrix::t(GetAssayData(obj))
+  } else {
+    Matrix::t(GetAssayData(obj, assayname))
+  }
+  batch <- obj@meta.data[[batchname]]
+  cls <- if (length(classname) > 1) {
+    # obj[[name]] returns dataframe instead of vector!
+    lapply(classname, function(name) obj@meta.data[[name]])
+  } else {
+    obj@meta.data[[classname]]
+  }
+
+  return(RVP(X, batch, cls, ret.obj))
 }
 
 
 #' Plots graph of truncated RVP at different feature lengths
-#'
+#'s
 #' @param sum_sq Dataframe of sum of squares with dim (n_features, 2).
 #' @param m Number of features to retain from sum_sq (from the top).
 plot.rvp <- function(sum_sq, m = NULL, cex = 1) {
@@ -117,14 +148,17 @@ plot.rvp <- function(sum_sq, m = NULL, cex = 1) {
     geom_line(
       aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch)),
       color = 'blue'
-    ) + 
-    labs(x = xlab, y = "Cumulative sum")
+    ) +
+    geom_line(
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total))
+    ) +
+    labs(x = xlab, y = "Cumulative sum of squares")
   
   ax2 <- ggplot(sum_sq) +
     geom_line(
       aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total))
     ) +
-    labs(x = xlab, y = "Cumulative sum")
+    labs(x = xlab, y = "Cumulative sum of squares (total)")
 
   ax3 <- ggplot(sum_sq) +
     geom_line(
@@ -135,16 +169,16 @@ plot.rvp <- function(sum_sq, m = NULL, cex = 1) {
     ) +
     labs(x = xlab, y = "RVP")
 
-  ax4 <- ggplot(sum_sq) +
-    geom_point(
-      aes(x = seq_len(nrow(sum_sq)), y = ss_batch),
-      color = 'blue', cex = cex
-    ) + 
-    geom_point(
-      aes(x = seq_len(nrow(sum_sq)), y = ss_total),
-      cex = cex
-    ) +
-    labs(x = xlab, y = "Sum of squares")
+  # ax4 <- ggplot(sum_sq) +
+  #   geom_point(
+  #     aes(x = seq_len(nrow(sum_sq)), y = ss_batch),
+  #     color = 'blue', cex = cex
+  #   ) + 
+  #   geom_point(
+  #     aes(x = seq_len(nrow(sum_sq)), y = ss_total),
+  #     cex = cex
+  #   ) +
+  #   labs(x = xlab, y = "Sum of squares")
 
-  cowplot::plot_grid(ax1, ax2, ax3, ax4, nrow = 2)
+  cowplot::plot_grid(ax1, ax3, nrow = 1)
 }
