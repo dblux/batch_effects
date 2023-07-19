@@ -6,7 +6,7 @@
 # center : logical, is the data centered?
 # scaleY : should Y be scaled based on number of samples in each batch?
 # seed : ability to set the seed for random sampling
-gPCA.batchdetect <- function(
+gPCA <- function(
   x,batch,filt=NULL,nperm=1000,center=FALSE,scaleY=FALSE,seed=NULL
 ){
   if(!is.null(seed)){set.seed(seed)}
@@ -81,19 +81,19 @@ gPCA.batchdetect <- function(
   }
 
   # Guided SVD:
-  svd.bat<-svd(t(y2)%*%data.imp)
+  svd.bat <- svd(t(y2) %*% data.imp)
 
   ### Variance of guided PCs
-  PC.g<-data.imp%*% svd.bat$v
-  var.bat<-var(PC.g)
-  varPCg1<-diag(var.bat)[1]/sum(diag(var.bat))
-  cumulative.var.g<-numeric()
+  PC.g <- data.imp %*% svd.bat$v
+  var.bat <- var(PC.g)
+  varPCg1 <- diag(var.bat)[1] / sum(diag(var.bat))
+  cumulative.var.g <- numeric()
   for( i in 1:dim(var.bat)[1] ){
     cumulative.var.g[i]<-sum(diag(var.bat)[1:i])/sum(diag(var.bat))
   }
 
   # Calculate test statistic delta:
-  delta<-diag(var.bat)[1]/diag(var.x)[1]
+  delta <- diag(var.bat)[1] / diag(var.x)[1]
 
   ##########################################################
   ### Begin loop for random sample of batch permutations ###
@@ -137,7 +137,8 @@ gPCA.batchdetect <- function(
   list(
     delta=delta,p.val=p.val,delta.p=delta.p,
     batch=batch,filt=filt,n=n,p=p,b=b,
-    PCg=PC.g,PCu=PC.u,varPCu1=varPCu1,varPCg1=varPCg1,nperm=nperm,
+    PCg=PC.g,PCu=PC.u,
+    varPCu1=varPCu1,varPCg1=varPCg1,nperm=nperm,
     cumulative.var.u=cumulative.var.u,
     cumulative.var.g=cumulative.var.g
   )
