@@ -1,11 +1,28 @@
-#' Calculates percentage of variance in data due to batch effects
-#' 
+#' Recursive variance partitioning (RVP)
+#'
+#' Calculates percentage of variance in data due to batch effects. It is a
+#' generic function that invokes convenience S3 methods for the
+#' SingleCellExperiment and Seurat classes.
+#'
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
 #' @param batch Vector containing batch labels of samples.
 #' @param cls Vector or list of vectors containing class labels of samples.
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
+rvp <- function(x, ...) UseMethod("rvp", x)
+
+
+#' Recursive variance partitioning (RVP)
+#'
+#' Calculates percentage of variance in data due to batch effects. Default
+#' method of the generic rvp function for data.frame or matrix classes.
+#'
+#' @param X Dataframe or matrix with dim (n_samples, n_features).
+#' @param batch Vector containing batch labels of samples.
+#' @param cls Vector or list of vectors containing class labels of samples.
+#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @return numeric indicating total percentage of variance in data due to batch effects.
+rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
   if (nrow(X) != length(batch))
     stop("Length of batch does not match number of rows in X!")
   if (is.vector(cls) || is.factor(cls))
@@ -30,14 +47,14 @@ RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
     ss_batch <- rowSums(sweep(squares, 2, nperbatches, `*`))
 
     stopifnot(length(ss_batch) == ncol(X))
-    total_percentage <- sum(ss_batch) / sum(ss_total) 
+    pct_batch <- sum(ss_batch) / sum(ss_total) 
     if (ret.obj) {
       return(list(
-        percentage = total_percentage,
+        percentage = pct_batch,
         sum_squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
       ))
     } else {
-      return(total_percentage)
+      return(pct_batch)
     }
   } else {
     ss_total <- colSums(sweep(X, 2, colMeans(X), `-`) ^ 2)
@@ -51,7 +68,7 @@ RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
     batch_classes <- Filter(function(x) length(x) != 0, batch_classes)
     # Warning: recursive call
     objs <- mapply(
-      RVP, X_classes, batch_classes,
+      rvp.default, X_classes, batch_classes,
       MoreArgs = list(cls = NULL, ret.obj = TRUE),
       SIMPLIFY = FALSE
     )
@@ -62,15 +79,14 @@ RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
     stopifnot(is.list(ss_batch_classes))
     ss_batch <- Reduce(`+`, ss_batch_classes)
     stopifnot(length(ss_batch) == length(ss_total))
-    total_percentage <- sum(ss_batch) / sum(ss_total)
+    pct_batch <- sum(ss_batch) / sum(ss_total)
     if (ret.obj) {
       return(list(
-        percentage = total_percentage,
-        percentage_classes = sapply(objs, function(obj) obj$percentage),
+        percentage = pct_batch,
         sum_squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
       ))
     } else {
-      return(total_percentage)
+      return(pct_batch)
     }
   }
 }
@@ -86,7 +102,7 @@ RVP <- function(X, batch, cls = NULL, ret.obj = FALSE) {
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import SingleCellExperiment, Matrix
-RVP.SingleCellExperiment <- function(
+rvp.SingleCellExperiment <- function(
   sce, batchname, classname, assayname = NULL, ret.obj = FALSE
 ) {
   X <- if (is.null(assayname)) {
@@ -95,13 +111,14 @@ RVP.SingleCellExperiment <- function(
     Matrix::t(assay(sce, assayname))
   }
   batch <- sce[[batchname]]
+  # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
     lapply(classname, function(name) sce[[name]])
   } else {
     sce[[classname]]
   }
   
-  return(RVP(X, batch, cls, ret.obj))
+  return(rvp.default(X, batch, cls, ret.obj))
 }
 
 
@@ -115,15 +132,12 @@ RVP.SingleCellExperiment <- function(
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import Seurat, Matrix 
-RVP.Seurat <- function(
-  obj, batchname, classname, assayname = NULL, ret.obj = FALSE
+rvp.Seurat <- function(
+  obj, batchname, classname, layer = NULL, ret.obj = FALSE
 ) {
-  X <- if (is.null(assayname)) {
-    Matrix::t(GetAssayData(obj))
-  } else {
-    Matrix::t(GetAssayData(obj, assayname))
-  }
+  X <- Matrix::t(LayerData(obj, layer))
   batch <- obj@meta.data[[batchname]]
+  # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
     # obj[[name]] returns dataframe instead of vector!
     lapply(classname, function(name) obj@meta.data[[name]])
@@ -131,12 +145,12 @@ RVP.Seurat <- function(
     obj@meta.data[[classname]]
   }
 
-  return(RVP(X, batch, cls, ret.obj))
+  return(rvp.default(X, batch, cls, ret.obj))
 }
 
 
 #' Plots graph of truncated RVP at different feature lengths
-#'s
+#'
 #' @param sum_sq Dataframe of sum of squares with dim (n_features, 2).
 #' @param m Number of features to retain from sum_sq (from the top).
 plot.rvp <- function(sum_sq, m = NULL, cex = 1) {
