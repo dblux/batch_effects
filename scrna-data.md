@@ -18,7 +18,7 @@ macosko <- MacoskoRetinaData()
 shekhar <- ShekharRetinaData()
 ```
 
-## Human pancreas data set
+### Human pancreas data set
 
 - Consists of data sets from:
     1. Baron et al.
