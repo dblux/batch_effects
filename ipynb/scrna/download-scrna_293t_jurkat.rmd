@@ -1,0 +1,45 @@
+```{r}
+library(ExperimentHub)
+library(Seurat)
+
+eh <- ExperimentHub()
+data <- query(eh, "SimBenchData")
+hek293t <- data[["EH5384"]] # downloads data set
+both <- data[["EH5385"]] # downloads data set
+
+jurkat_counts <- Read10X(
+  "data/293t_jurkat/raw/jurkat/filtered_matrices_mex/hg19",
+  gene.column = 1,
+  cell.column = 1,
+  unique.features = TRUE,
+  strip.suffix = FALSE
+)
+jurkat <- CreateSeuratObject(counts = jurkat_counts)
+```
+# Edit metadata
+```{r}
+both@meta.data$trajectory <- NULL
+both@meta.data$tissue <- NULL
+both@meta.data$species <- NULL
+
+hek293t@meta.data$trajectory <- NULL
+hek293t@meta.data$tissue <- NULL
+hek293t@meta.data$species <- NULL
+
+jurkat@meta.data$celltype <- "jurkat"
+jurkat@meta.data$orig.ident <- "jurkat"
+jurkat@meta.data$technology <- "10x"
+```
+```{r}
+print(head(hek293t@meta.data))
+print(head(both@meta.data))
+print(head(jurkat@meta.data))
+```
+# Merge datasets
+```{r}
+halfmix <- merge(both, c(hek293t, jurkat), project = "Jurkat-HEK293T")
+Idents(halfmix) <- "orig.ident"
+```
+```{r}
+saveRDS(halfmix, "data/293t_jurkat/processed/halfmix.rds")
+```

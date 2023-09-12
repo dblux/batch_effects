@@ -14,7 +14,7 @@ rvp <- function(x, ...) UseMethod("rvp", x)
 
 #' Recursive variance partitioning (RVP)
 #'
-#' Calculates percentage of variance in data due to batch effects. Default
+#' Calculates percentage of variance in data due to batch effects. Default S3
 #' method of the generic rvp function for data.frame or matrix classes.
 #'
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
@@ -93,22 +93,22 @@ rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
 
 
 #' Calculates percentage of variance in data due to batch effects
-#' 
-#' @param sce SingleCellExperiment object 
+#'
+#' @param sce SingleCellExperiment object
 #' @param batchname Character vector of column name of colData representing batch information.
 #' @param classname Character vector of column name/s of colData representing class information.
-#' @param assayname Character vector of assay name of SCE object. By default
+#' @param dataname Character vector of assay name of SCE object. By default
 #'   the first assay is used.
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import SingleCellExperiment, Matrix
 rvp.SingleCellExperiment <- function(
-  sce, batchname, classname, assayname = NULL, ret.obj = FALSE
+  sce, batchname, classname, dataname = NULL, ret.obj = FALSE
 ) {
-  X <- if (is.null(assayname)) {
+  X <- if (is.null(dataname)) {
     Matrix::t(assay(sce))
   } else {
-    Matrix::t(assay(sce, assayname))
+    Matrix::t(assay(sce, dataname))
   }
   batch <- sce[[batchname]]
   # TODO: Handle classname == NULL
@@ -117,25 +117,28 @@ rvp.SingleCellExperiment <- function(
   } else {
     sce[[classname]]
   }
-  
   return(rvp.default(X, batch, cls, ret.obj))
 }
 
 
 #' Calculates percentage of variance in data due to batch effects
-#' 
+#'
 #' @param obj Seurat object
 #' @param batchname Character vector of column name of colData representing batch information.
 #' @param classname Character vector of column name/s of colData representing class information.
-#' @param assayname Character vector of assay name of SCE object. By default
-#'   the first assay is used.
+#' @param dataname Character indicating data layer in assay to use. E.g. counts
 #' @param ret.obj Logical indicating whether to return object or percentage of variance.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-#' @import Seurat, Matrix 
+#' @import Seurat, Matrix
 rvp.Seurat <- function(
-  obj, batchname, classname, layer = NULL, ret.obj = FALSE
+  obj, batchname, classname, dataname = NULL, ret.obj = FALSE
 ) {
-  X <- Matrix::t(LayerData(obj, layer))
+  X <- if(length(find("LayerData")) == 0) {
+    Matrix::t(GetAssayData(obj, dataname))
+  } else {
+    Matrix::t(LayerData(obj, dataname)) # Seurat v5
+  }
+
   batch <- obj@meta.data[[batchname]]
   # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
@@ -144,7 +147,6 @@ rvp.Seurat <- function(
   } else {
     obj@meta.data[[classname]]
   }
-
   return(rvp.default(X, batch, cls, ret.obj))
 }
 

@@ -1,9 +1,8 @@
 #' Simulate log-transformed gene expression microarray data
 #'
 #' @param m Number of features.
-#' @param n Number of samples.
 #' @param crosstab Matrix of contingency table specifying number of samples in
-#'   each class and batch condition, with classes as rows and batches as columns.
+#'   each class-batch condition, with classes as rows and batches as columns.
 #' @param delta Magnitude of additive batch effects.
 #' @param gamma Magnitude of multiplicative batch effects. Variance parameter
 #'   of Normal distribution modelling batch effects across samples in a batch.
@@ -13,32 +12,39 @@
 #'   distribution modelling log fold change.
 #' @param a Shape parameter of Gamma distribution modelling basal expression.
 #' @param b Scale parameter of Gamma distribution modelling basal expression.
+#' @param dropout Logical indicating whether to perform dropout
 #' @param c Inverse scale parameter of the sigmoid function
 #' @param d Midpoint parameter of the sigmoid function
-#' @param dropout Logical indicating whether to perform dropout
+#' @param seed Numeric specifying random seed. Defaults to no seed.
 #' @return Matrix of dim (m, n).
 #'
 #' @importFrom extraDistr rlaplace
 #' @export
 simulate_microarray <- function(
-  m, n, crosstab = NULL,
-  delta = 1, gamma = 1,
-  phi = 0.1, zeta = 1.5,
-  a = 40, b = 0.2,
-  c = 2, d = -6, dropout = TRUE,
-  epsilon = 0.5,
-  seed = 0
+  m,
+  crosstab,
+  delta = 1,
+  gamma = 1,
+  phi = 0.1,
+  zeta = 1.5,
+  a = 40,
+  b = 0.2,
+  epsilon = 0.5, # limit = (, 1)
+  kappa_sd = 0.2, # limit = (, 0.3)
+  dropout = FALSE,
+  c = 2,
+  d = -6,
+  seed = NULL
 ) {
-  # checks
-  stopifnot(n == sum(crosstab))
-  # TODO: default is random 
-  set.seed(seed)
+  if (!is.null(seed))
+    set.seed(seed)
 
+  n <- sum(crosstab)
   n_class <- nrow(crosstab)
   n_batch <- ncol(crosstab)
   gs <- rep(rep(seq_len(n_class), n_batch), crosstab) # class encoding
   ks <- rep(rep(seq_len(n_batch), each = n_class), crosstab) # batch encoding
-  # metadata 
+  # metadata
   gs_alphabet <- LETTERS[gs]
   sid <- paste(paste0("ID", seq_len(n)), gs_alphabet, ks, sep = "_")
   metadata <- data.frame(
@@ -66,18 +72,19 @@ simulate_microarray <- function(
     }
   }
   # TODO: provide option to specify batch effects magnitude of different batches
-  log_beta <- matrix(extraDistr::rlaplace(m * n_batch, 0, delta), m, n_batch)
-  
-  alpha <- matrix(0, m, n)
+  log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
+  alpha <- matrix(0, m, n) # batch effect terms
   for (i in seq_len(m)) {
     for (j in seq_len(n)) {
       k <- ks[j]
       alpha[i, j] <- rnorm(1, log_beta[i, k], gamma)
     }
   }
+  log_kappa <- rnorm(n, 0, kappa_sd) # log of sample specific scaling factor
+  Z <- sweep(Z, 2, log_kappa, `+`)
   X <- Z + alpha
   X[X < 0] <- 0 # set negative values to zero
-  
+
   if (dropout) {
     P <- sigmoid(X, c, d)
     indicator <- matrix(0, m, n)

@@ -1,0 +1,7 @@
+```{r}
+library(SingleCellExperiment)
+```
+```{r}
+varnames <- load("data/cellbench/cellbench.RData")
+print(varnames)
+```

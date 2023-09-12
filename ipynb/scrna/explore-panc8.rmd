@@ -1,0 +1,192 @@
+# scRNA-seq: panc8
+```{r}
+library(tidyr)
+library(magrittr)
+library(Matrix)
+
+library(ggplot2)
+library(cowplot)
+theme_set(theme_bw())
+
+library(Seurat)
+library(SeuratData)
+
+library(kBET)
+library(lisi)
+```
+```{r}
+source("batch_effects/R/rvp.R")
+```
+```{r}
+panc8 <- LoadData("panc8")
+```
+
+```{r}
+# Seurat v4
+# print(panc8)
+# print(str(panc8))
+print(colnames(panc8@meta.data))
+counts <- GetAssayData(panc8, "counts") # Seurat v4
+```
+
+```{r}
+panc8 <- NormalizeData(panc8)
+panc8 <- FindVariableFeatures(panc8)
+
+# Reduced dimension plots
+# panc8 <- ScaleData(panc8)
+# panc8 <- RunPCA(panc8)
+# panc8 <- RunUMAP(panc8, dims = 1:20)
+
+# print(VariableFeatures(panc8))
+# print(head(Embeddings(panc8, "pca")))
+# panc8@meta.data
+```
+```{r}
+ax1 <- DimPlot(panc8, reduction = "umap")
+ax2 <- DimPlot(panc8, reduction = "umap", group.by = "celltype")
+```
+
+# Subset data
+- Data sets: indrop3, smartseq2
+- Cell types: alpha, ductal
+```{r}
+panc2 <- subset(panc8,
+  dataset %in% c("indrop3", "smartseq2") &
+  celltype %in% c("alpha", "ductal")
+)
+```
+
+# Quality control - Cells
+```{r}
+VlnPlot(panc2, features = c("nFeature_RNA", "nCount_RNA"))
+FeatureScatter(panc2, feature1 = "nFeature_RNA", feature2 = "nCount_RNA")
+
+panc2 <- subset(panc2,
+  subset = nCount_RNA < 1.5e6 & nFeature_RNA < 10000
+)
+```
+
+# Quality control - Filter features
+```{r}
+counts <- LayerData(panc2, "counts")
+nfeat_genes <- rowSums(counts > 0)
+# hist(nfeat_genes[nfeat_genes < 300])
+```
+
+# Filter features with many dropouts
+```{r}
+panc2fltr <- panc2[nfeat_genes > 150, ]
+VlnPlot(panc2fltr, features = c("nFeature_RNA", "nCount_RNA"))
+```
+
+## Expt: Degrees of imbalance
+- 2:2, 2:3, 2:4, 2:5, 2:6
+- Each batch: 480 cells
+
+metadata <- panc2fltr@meta.data[c("celltype", "dataset")]
+smartseq2_alpha <- which(metadata[["celltype"]] == "alpha" & metadata[["dataset"]] == "smartseq2")
+smartseq2_ductal <- which(metadata[["celltype"]] == "ductal" & metadata[["dataset"]] == "smartseq2")
+indrop3_alpha <- which(metadata[["celltype"]] == "alpha" & metadata[["dataset"]] == "indrop3")
+indrop3_ductal <- which(metadata[["celltype"]] == "ductal" & metadata[["dataset"]] == "indrop3")
+
+nperbatch <- 480
+rng <- seq(2, 6)
+list_imbal <- list()
+
+for (i in rng) {
+  frac <- 2 / (i + 2)
+  n1 <- round(frac * nperbatch)
+  n2 <- round((1 - frac) * nperbatch)
+  idx1 <- sample(smartseq2_alpha, n1)
+  idx2 <- sample(smartseq2_ductal, n2)
+  idx3 <- sample(indrop3_alpha, n2)
+  idx4 <- sample(indrop3_ductal, n1)
+  idx <- sort(c(idx1, idx2, idx3, idx4))
+  list_imbal <- c(list_imbal, panc2fltr[, idx])
+}
+
+names(list_imbal) <- rng
+
+obj <- list_imbal[[5]]
+
+batch_effects <- function(obj, batch, cls) {
+  X <- LayerData(obj)
+  metadata <- obj@meta.data
+  kbet_size <- dim(obj)[2]
+  
+  RVP <- rvp(obj, batch, cls)
+  kbet_estimate <- kBET(
+    Matrix::t(X),
+    obj[[batch]],
+    testSize = kbet_size, n_repeat = 1
+  )
+  rejection_rate <- kbet_estimate$summary$kBET.observed[1]
+  lisi_results <- compute_lisi(
+    Matrix::t(X),
+    metadata,
+    c(batch, cls)
+  )
+  blisi <- mean(lisi_results[[batch]])
+  
+  return(c(rvp = RVP, kbet = rejection_rate, lisi = blisi))
+}
+
+results <- lapply(list_imbal, batch_effects)
+
+results1 <- results %>%
+  data.frame()
+
+results <- readRDS("../tmp/results.rds")
+results1 <- data.frame(lapply(results, unlist))
+colnames(results1) <- substring(colnames(results1), 2, 2)
+results1[["metric"]] <- rownames(results1)
+results2 <- gather(results1, "imbalance", "value", -c("metric"))
+
+ggplot(results2) +
+  geom_line(aes(x = imbalance, y = value, color = metric, group = metric))
+
+# panc8_flt <- NormalizeData(panc8_flt)
+# panc8_flt <- FindVariableFeatures(panc8_flt, selection.method = "vst", nfeatures = 2000)
+
+# Plot: RVP
+
+SS <- rvp$sum_squares
+# sort by ss_total
+SS_t <- SS[order(-SS$ss_total), ]
+# sort by ss_batch
+SS_b <- SS[order(-SS$ss_batch), ]
+# sort by mean
+counts <- GetAssayData(panc8_fltr)
+SS_m <- SS[order(-rowMeans(counts)), ]
+# sort by mean in top 10% cells
+mean_counts_10 <- apply(counts, 1, function(x) {
+  pct <- 0.1
+  mean(sort(x, decreasing = TRUE)[seq_len(pct * ncol(counts))])
+})
+SS_m10 <- SS[order(-mean_counts_10), ]
+
+ax_rvp <- plot.rvp(SS_m10, cex = .5)
+ax_rvp
+
+file <- "~/Dropbox/tmp/ssm10-panc8.pdf"
+ggsave(file, ax_rvp, width = 6, height = 3)
+
+panc8_fltr <- ScaleData(panc8_fltr)
+panc8_fltr <- RunPCA(panc8_fltr, features = rownames(panc8_fltr), npcs = 20)
+ax_pca <- DimPlot(panc8_fltr) +
+  labs(subtitle = sprintf("RVP = %.4f", rvp$percentage))
+ax_pca
+file <- '~/Dropbox/tmp/pca-panc8_fltr.pdf'
+ggsave(file, ax_pca, width = 6, height = 4)
+
+panc8_fltr <- RunUMAP(panc8_fltr, dims = 1:20)
+head(panc8_fltr@meta.data)
+
+ax_umap <- DimPlot(panc8_fltr, reduction = "umap", group.by = "celltype")
+ax_umap
+file <- '~/Dropbox/tmp/umap_celltype-panc8_fltr.pdf'
+ggsave(file, ax_umap, width = 6, height = 4)
+
+# Explore SeuratData
+subset(AvailableData(), species == "mouse")
