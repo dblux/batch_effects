@@ -82,7 +82,7 @@ simdata <- simulate_microarray(
   delta = delta, gamma = 1,
   phi = 0.1, zeta = 1.5,
   epsilon = 0.5,
-  kappa_sd = 0.2,
+  kappa = 0.2,
   dropout = FALSE
 )
 ```
@@ -93,9 +93,9 @@ ax_pca <- ggplot_pca(
   simdata$X, simdata$metadata,
   col = 'batch', pch = 'class'
 )
-
-file <- "tmp/pca-simulated.png"
-ggsave(file, ax_pca, width = 5, height = 5)
+ax_pca
+#file <- "tmp/pca-simulated.png"
+#ggsave(file, ax_pca, width = 5, height = 5)
 ```
 ## Feature
 ```{r}

@@ -18,7 +18,6 @@
 #' @param seed Numeric specifying random seed. Defaults to no seed.
 #' @return Matrix of dim (m, n).
 #'
-#' @importFrom extraDistr rlaplace
 #' @export
 simulate_microarray <- function(
   m,
@@ -30,7 +29,7 @@ simulate_microarray <- function(
   a = 40,
   b = 0.2,
   epsilon = 0.5, # limit = (, 1)
-  kappa_sd = 0.2, # limit = (, 0.3)
+  kappa = 0.2, # limit = (, 0.3)
   dropout = FALSE,
   c = 2,
   d = -6,
@@ -73,16 +72,16 @@ simulate_microarray <- function(
   }
   # TODO: provide option to specify batch effects magnitude of different batches
   log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
-  alpha <- matrix(0, m, n) # batch effect terms
+  omega <- matrix(0, m, n) # batch effect terms
   for (i in seq_len(m)) {
     for (j in seq_len(n)) {
       k <- ks[j]
-      alpha[i, j] <- rnorm(1, log_beta[i, k], gamma)
+      omega[i, j] <- rnorm(1, log_beta[i, k], gamma)
     }
   }
-  log_kappa <- rnorm(n, 0, kappa_sd) # log of sample specific scaling factor
-  Z <- sweep(Z, 2, log_kappa, `+`)
-  X <- Z + alpha
+  log_alpha <- rnorm(n, 0, kappa) # log of sample specific scaling factor
+  Z <- sweep(Z, 2, log_alpha, `+`)
+  X <- Z + omega
   X[X < 0] <- 0 # set negative values to zero
 
   if (dropout) {
@@ -98,7 +97,7 @@ simulate_microarray <- function(
 
   list(
     X = X, Z = Z, metadata = metadata,
-    n_diffexpr = n_diffexpr, alpha = alpha,
+    n_diffexpr = n_diffexpr, omega = omega,
     log_psi = log_psi, log_rho = log_rho, log_beta = log_beta
   )
 }
