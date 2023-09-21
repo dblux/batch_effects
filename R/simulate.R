@@ -6,10 +6,11 @@
 #' @param delta Magnitude of additive batch effects.
 #' @param gamma Magnitude of multiplicative batch effects. Variance parameter
 #'   of Normal distribution modelling batch effects across samples in a batch.
-#' @param epsilon Magnitude of random noise.
 #' @param phi Percentage of differentially expressed features.
 #' @param zeta Magnitude of class effects. Variance parameter of Normal
 #'   distribution modelling log fold change.
+#' @param epsilon Magnitude of feature-wise variation.
+#' @param kappa Magnitude of sample-specific variation (scaling factor).
 #' @param a Shape parameter of Gamma distribution modelling basal expression.
 #' @param b Scale parameter of Gamma distribution modelling basal expression.
 #' @param dropout Logical indicating whether to perform dropout
@@ -26,10 +27,10 @@ simulate_microarray <- function(
   gamma = 1,
   phi = 0.1,
   zeta = 1.5,
-  a = 40,
-  b = 0.2,
   epsilon = 0.5, # limit = (, 1)
   kappa = 0.2, # limit = (, 0.3)
+  a = 40,
+  b = 0.2,
   dropout = FALSE,
   c = 2,
   d = -6,
@@ -70,7 +71,6 @@ simulate_microarray <- function(
       Z[i, j] <- rnorm(1, log_psi[i] + log_rho[i, g], epsilon)
     }
   }
-  # TODO: provide option to specify batch effects magnitude of different batches
   log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
   omega <- matrix(0, m, n) # batch effect terms
   for (i in seq_len(m)) {
@@ -106,4 +106,6 @@ simulate_microarray <- function(
 #' Sigmoid function
 #'
 #' @param numeric scalar/vector/matrix
+#' @param c Inverse scale parameter of the sigmoid function
+#' @param d Midpoint parameter of the sigmoid function
 sigmoid <- function(x, c = 1, d = 0) 1 / (1 + exp(-(c * (x + d))))

@@ -7,7 +7,8 @@
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
 #' @param batch Vector containing batch labels of samples.
 #' @param cls Vector or list of vectors containing class labels of samples.
-#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @param ret.percent Logical indicating whether to only return percentage of
+#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 rvp <- function(x, ...) UseMethod("rvp", x)
 
@@ -20,16 +21,17 @@ rvp <- function(x, ...) UseMethod("rvp", x)
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
 #' @param batch Vector containing batch labels of samples.
 #' @param cls Vector or list of vectors containing class labels of samples.
-#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @param ret.percent Logical indicating whether to only return percentage of
+#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
+rvp.default <- function(X, batch, cls = NULL, ret.percent = TRUE) {
   if (nrow(X) != length(batch))
     stop("Length of batch does not match number of rows in X!")
   if (is.vector(cls) || is.factor(cls))
     cls <- as.character(cls)
   if (length(unique(batch)) == 1) {
     # Use NA as is.na works on lists
-    return(list(percentage = 0, sum_squares = NA)) # only one batch is present
+    return(list(percent.batch = 0, sum.squares = NA)) # only one batch is present
   }
 
   X[is.na(X)] <- 0
@@ -47,18 +49,18 @@ rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
     ss_batch <- rowSums(sweep(squares, 2, nperbatches, `*`))
 
     stopifnot(length(ss_batch) == ncol(X))
-    pct_batch <- sum(ss_batch) / sum(ss_total) 
-    if (ret.obj) {
-      return(list(
-        percentage = pct_batch,
-        sum_squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
-      ))
-    } else {
+    pct_batch <- sum(ss_batch) / sum(ss_total)
+    if (ret.percent) {
       return(pct_batch)
+    } else {
+      return(list(
+        percent.batch = pct_batch,
+        sum.squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
+      ))
     }
   } else {
     ss_total <- colSums(sweep(X, 2, colMeans(X), `-`) ^ 2)
-    # If cls is list, splits by all vectors in list 
+    # If cls is list, splits by all vectors in list
     X_classes <- split.data.frame(X, cls)
     # rm(X)
     X_classes <- Filter(function(X) nrow(X) != 0, X_classes)
@@ -69,24 +71,24 @@ rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
     # Warning: recursive call
     objs <- mapply(
       rvp.default, X_classes, batch_classes,
-      MoreArgs = list(cls = NULL, ret.obj = TRUE),
+      MoreArgs = list(cls = NULL, ret.percent = FALSE),
       SIMPLIFY = FALSE
     )
-    sumsquares_classes <- lapply(objs, function(obj) obj$sum_squares)
-    # Filters out obj$sum_squares == NA
+    sumsquares_classes <- lapply(objs, function(obj) obj$sum.squares)
+    # Filters out obj$sum.squares == NA
     sumsquares_classes <- sumsquares_classes[!is.na(sumsquares_classes)]
     ss_batch_classes <- lapply(sumsquares_classes, function(X) X$ss_batch)
     stopifnot(is.list(ss_batch_classes))
     ss_batch <- Reduce(`+`, ss_batch_classes)
     stopifnot(length(ss_batch) == length(ss_total))
     pct_batch <- sum(ss_batch) / sum(ss_total)
-    if (ret.obj) {
-      return(list(
-        percentage = pct_batch,
-        sum_squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
-      ))
-    } else {
+    if (ret.percent) {
       return(pct_batch)
+    } else {
+      return(list(
+        percent.batch = pct_batch,
+        sum.squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
+      ))
     }
   }
 }
@@ -99,11 +101,13 @@ rvp.default <- function(X, batch, cls = NULL, ret.obj = FALSE) {
 #' @param classname Character vector of column name/s of colData representing class information.
 #' @param dataname Character vector of assay name of SCE object. By default
 #'   the first assay is used.
-#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @param ret.percent Logical indicating whether to only return percentage of
+#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import SingleCellExperiment, Matrix
 rvp.SingleCellExperiment <- function(
-  sce, batchname, classname, dataname = NULL, ret.obj = FALSE
+  sce, batchname, classname,
+  dataname = NULL, ret.percent = TRUE
 ) {
   X <- if (is.null(dataname)) {
     Matrix::t(assay(sce))
@@ -117,7 +121,7 @@ rvp.SingleCellExperiment <- function(
   } else {
     sce[[classname]]
   }
-  return(rvp.default(X, batch, cls, ret.obj))
+  return(rvp.default(X, batch, cls, ret.percent))
 }
 
 
@@ -126,19 +130,24 @@ rvp.SingleCellExperiment <- function(
 #' @param obj Seurat object
 #' @param batchname Character vector of column name of colData representing batch information.
 #' @param classname Character vector of column name/s of colData representing class information.
-#' @param dataname Character indicating data layer in assay to use. E.g. counts
-#' @param ret.obj Logical indicating whether to return object or percentage of variance.
+#' @param slot Character indicating slot in assay to use. E.g. counts
+#' @param nperm Number of permutations to simulate in the Monte Carlo
+#'   permutation test. A mininum value of 100 is required. By default, no
+#'   permutation testing is performed.
+#' @param ret.percent Logical indicating whether to only return percentage of
+#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import Seurat, Matrix
+#' @export
 rvp.Seurat <- function(
-  obj, batchname, classname, dataname = NULL, ret.obj = FALSE
+  obj, batchname, classname,
+  slot = "data", nperm = NULL, ret.percent = TRUE
 ) {
-  X <- if(length(find("LayerData")) == 0) {
-    Matrix::t(GetAssayData(obj, dataname))
+  X <- if (length(find("LayerData")) == 0) {
+    Matrix::t(Seurat::GetAssayData(obj, slot))
   } else {
-    Matrix::t(LayerData(obj, dataname)) # Seurat v5
+    Matrix::t(Seurat::LayerData(obj, slot)) # Seurat v5
   }
-
   batch <- obj@meta.data[[batchname]]
   # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
@@ -147,7 +156,25 @@ rvp.Seurat <- function(
   } else {
     obj@meta.data[[classname]]
   }
-  return(rvp.default(X, batch, cls, ret.obj))
+  rvp_obj <- rvp.default(X, batch, cls, ret.percent = FALSE)
+  if (is.numeric(nperm)) {
+    stopifnot(nperm >= 100)
+    null_pcts <- numeric()
+    for (i in seq_len(nperm)) {
+      shuffled_batch <- sample(batch)
+      null_pct <- rvp.default(X, shuffled_batch, cls, ret.percent = TRUE)
+      null_pcts <- c(null_pcts, null_pct)
+    }
+    pct_batch <- rvp_obj$percent.batch
+    pvalue <- sum(null_pcts > pct_batch) / nperm
+    rvp_obj$null.percentages <- null_pcts
+    rvp_obj$p.value <- pvalue
+  }
+  if (ret.percent) {
+    return(rvp_obj$percent.batch)
+  } else {
+    return(rvp_obj)
+  }
 }
 
 

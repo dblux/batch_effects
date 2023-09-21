@@ -19,6 +19,7 @@ source("batch_effects/R/rvp.R")
 ```
 ```{r}
 panc8 <- LoadData("panc8")
+str(panc8)
 ```
 
 ```{r}
