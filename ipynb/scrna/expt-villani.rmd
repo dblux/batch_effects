@@ -26,12 +26,13 @@ villani <- readRDS(file)
 - No count data present, hence no nCounts, etc.
 - Filter on mito and ribo genes
 ```{r}
+# TODO: check mito and ribo genes
 total_tpms <- colSums(GetAssayData(villani, slot = "data"))
 mito_genes <- rownames(villani)[grep("^MT", rownames(villani))]
+print(mito_genes)
 total_mito <- colSums(GetAssayData(villani[mito_genes, ]))
 percent_mito <- total_mito / total_tpms
 villani$percent_mito <- percent_mito
-
 ribo_genes <- rownames(villani)[grep("^RP[SL]", rownames(villani))]
 total_ribo <- colSums(GetAssayData(villani[ribo_genes, ]))
 percent_ribo <- total_ribo / total_tpms
@@ -43,56 +44,42 @@ villani$percent_ribo <- percent_ribo
 # )
 # ggsave("tmp/vln-villani.png", vln, width = 10, height = 5)
 # ggsave("tmp/scatter_cls-villani.png", scatter, width = 5, height = 5)
-```
-```{r}
-vill_qc <- subset(
+
+vill_sub <- subset(
   villani,
   subset = percent_ribo > 0.04 & percent_ribo < 0.28 &
     percent_mito > 0.004 & percent_mito < 0.015
 )
-table(vill_qc$batch, vill_qc$celltype)
+table(vill_sub$batch, vill_sub$celltype)
 # FeatureScatter(vill_qc, "percent_mito", "percent_ribo", group.by = "celltype")
-```
-```{r}
-# ax1 <- DimPlot(
-#   vill_qc, reduction = "pca",
-#   group.by = "batch", shuffle = TRUE
-# )
-# ax2 <- DimPlot(
-#   vill_qc, reduction = "pca",
-#   group.by = "celltype", shuffle = TRUE
-# )
-# ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
-# ax
-# file <- "tmp/pca-vill_qc.png"
-# ggsave(file, ax, width = 10, height = 5)
 ```
 # QC - Filter features
 - Filter out mito and ribo genes
 - Filter out sparse genes
 ```{r}
-X <- GetAssayData(vill_qc, slot = "data")
+X <- GetAssayData(vill_sub, slot = "data")
 pct_zero <- rowSums(X == 0) / ncol(X)
 is_selected <- pct_zero < 0.9
-vill_qc1 <- vill_qc[is_selected, ]
+vill_sel <- vill_sub[is_selected, ]
 
-vill_qc1@assays$log_tpm <- vill_qc1@assays$tpm
-vill_qc1 <- SetAssayData(
-  vill_qc1, slot = "data", assay = "log_tpm",
-  new.data = log1p(GetAssayData(vill_qc1))
+vill_sel@assays$log_tpm <- vill_sel@assays$tpm
+vill_sel <- SetAssayData(
+  vill_sel, slot = "data", assay = "log_tpm",
+  new.data = log1p(GetAssayData(vill_sel))
 )
-DefaultAssay(vill_qc1) <- "log_tpm"
+DefaultAssay(vill_sel) <- "log_tpm"
 ```
 # Subset
 ```{r}
 tabnames <- list(unique(villani$celltype), unique(villani$batch))
 ct_bal <- matrix(30, 4, 2, dimnames = tabnames)
-ct_imbal <- matrix(c(15, 45, 20, 40, 45, 15, 40, 20), 4, 2, dimnames = tabnames)
-idx_imbal <- numeric()
-idx_bal <- numeric()
+ct_imbal <- matrix(
+  c(15, 45, 20, 40, 45, 15, 40, 20), 4, 2, dimnames = tabnames
+)
+idx_bal <- idx_imbal <- numeric()
 for (g in rownames(ct_imbal)) {
   for (k in colnames(ct_imbal)) {
-    j_kg <- which(vill_qc1$batch == k & vill_qc1$celltype == g)
+    j_kg <- which(vill_sel$batch == k & vill_sel$celltype == g)
     n1_kg <- ct_imbal[g, k]
     j1_kg <- sample(j_kg, n1_kg)
     idx_imbal <- c(idx_imbal, j1_kg)
@@ -102,13 +89,13 @@ for (g in rownames(ct_imbal)) {
     idx_bal <- c(idx_bal, j2_kg)
   }
 }
-vill_imbal <- vill_qc1[, idx_imbal]
-vill_bal <- vill_qc1[, idx_bal]
+vill_imbal <- vill_sel[, idx_imbal]
+vill_bal <- vill_sel[, idx_bal]
 table(vill_imbal$celltype, vill_imbal$batch)
 table(vill_bal$celltype, vill_bal$batch)
 ```
 ```{r}
-vill_b1 <- subset(vill_qc1, subset = batch == 1)
+vill_b1 <- subset(vill_sel, subset = batch == 1)
 table(vill_b1$celltype, vill_b1$batch)
 
 idx_imbal <- idx_bal <- numeric()
@@ -136,20 +123,25 @@ vill_b1_bal$batch <- na.omit(batch_bal)
 table(vill_b1_imbal$celltype, vill_b1_imbal$batch)
 table(vill_b1_bal$celltype, vill_b1_bal$batch)
 ```
+# Evaluate batch effects
 ```{r}
  eval_batch <- function(
-  obj, batch, cls, slotname = "data",
-  k0 = NULL, perplexity = 30, ret.kbet = FALSE
+  obj, batchname, classname, slot = "data",
+  k0 = NULL, perplexity = 30, ret.scores = TRUE
 ) {
-  RVP <- rvp(obj, batch, cls, slotname)
+  # TODO: print name of active assay?
+  rvp_obj <- rvp(
+    obj, batchname, classname,
+    nperm = 100, ret.percent = FALSE
+  )
   
-  X <- GetAssayData(obj, slot = slotname)
+  X <- GetAssayData(obj, slot = slot)
   metadata <- obj@meta.data
   kbet_size <- dim(obj)[2]
   
   kbet_estimate <- kBET(
     Matrix::t(X),
-    metadata[[batch]],
+    metadata[[batchname]],
     testSize = kbet_size, n_repeat = 1, k0 = k0
   )
   rejection_rate <- kbet_estimate$summary$kBET.observed[1]
@@ -157,30 +149,35 @@ table(vill_b1_bal$celltype, vill_b1_bal$batch)
   lisi_results <- compute_lisi(
     Matrix::t(X),
     metadata,
-    c(batch, cls),
+    c(batchname, classname),
     perplexity = perplexity
   )
-  blisi <- mean(lisi_results[[batch]])
-  if (ret.kbet)
-    return(kbet_estimate)
-
-  return(c(rvp = RVP, kbet = rejection_rate, lisi = blisi))
+  blisi <- mean(lisi_results[[batchname]])
+  if (ret.scores) {
+    return(c(rvp = RVP, kbet = rejection_rate, lisi = blisi))
+  } else {
+    return(list(rvp = rvp_obj, kbet = kbet_estimate, lisi = lisi_results))
+  }
 }
 ```
 ```{r}
-# TODO: Troubleshoot bLISI
 vill_objs <- list(vill_b1_bal, vill_b1_imbal, vill_bal, vill_imbal)
 names(vill_objs) <- c("negctrl_bal", "negctrl_imbal", "bal", "imbal")
-raw_results <- lapply(
-  vill_objs, eval_batch, "batch", "celltype", k0 = 15, perplexity = 5
+
+# raw_results <- lapply(
+#   vill_objs, eval_batch, "batch", "celltype",
+#   k0 = 15, perplexity = 5
+# )
+# data.frame(raw_results)
+rvp_objs <- lapply(
+  vill_objs, rvp, "batch", "celltype",
+  nperm = 100, ret.percent = FALSE
 )
-data.frame(raw_results)
-# TODO: Test rvp
-obj <- rvp(
-  villani, "batch", "celltype", nperm = NULL, ret.percent = FALSE
-)
-hist(obj$null.percentages, main = obj$percent.batch)
+str(rvp_objs)
+rvp_obj <- rvp_objs[[2]]
+sum(rvp_obj$null.percentages > rvp_obj$percent.batch)
 ```
+# Plot
 ```{r}
 obj <- vill_b1_bal
 obj <- obj %>%
@@ -192,26 +189,17 @@ ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
 file <- "tmp/pca-vill_b1_bal.png"
 ggsave(file, ax, width = 10, height = 5)
 ```
-bpct_b1 <- rvp(vill_b1_bal, "batch", "celltype", "data")
-cpct_b1 <- rvp(vill_b1, "celltype", "batch", "data")
-eps_b1 <- 1 - bpct_b1 - cpct_b1
-print(bpct_b1)
-print(cpct_b1)
-print(eps_b1)
-table(vill_b1_imbal$batch, vill_b1_imbal$celltype)
-```
-# Plot
 ```{r}
 ax1 <- DimPlot(
-  vill_qc1, reduction = "pca",
+  vill_sel, reduction = "pca",
   group.by = "batch", shuffle = TRUE
 )
 ax2 <- DimPlot(
-  vill_qc1, reduction = "pca",
+  vill_sel, reduction = "pca",
   group.by = "celltype", shuffle = TRUE
 )
 ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
 ax
-# file <- "tmp/pca-vill_qc1.png"
+# file <- "tmp/pca-vill_sel.png"
 # ggsave(file, ax, width = 10, height = 5)
 ```

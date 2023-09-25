@@ -20,6 +20,7 @@ source("batch_effects/R/rvp.R")
 ```{r}
 panc8 <- LoadData("panc8")
 str(panc8)
+rownames(panc8)[grep("^MT-", rownames(panc8))]
 ```
 
 ```{r}

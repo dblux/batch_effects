@@ -159,15 +159,15 @@ rvp.Seurat <- function(
   rvp_obj <- rvp.default(X, batch, cls, ret.percent = FALSE)
   if (is.numeric(nperm)) {
     stopifnot(nperm >= 100)
-    null_pcts <- numeric()
+    null_distr <- numeric()
     for (i in seq_len(nperm)) {
       shuffled_batch <- sample(batch)
       null_pct <- rvp.default(X, shuffled_batch, cls, ret.percent = TRUE)
-      null_pcts <- c(null_pcts, null_pct)
+      null_distr <- c(null_distr, null_pct)
     }
     pct_batch <- rvp_obj$percent.batch
-    pvalue <- sum(null_pcts > pct_batch) / nperm
-    rvp_obj$null.percentages <- null_pcts
+    pvalue <- sum(null_distr > pct_batch) / nperm
+    rvp_obj$null.distribution <- null_distr
     rvp_obj$p.value <- pvalue
   }
   if (ret.percent) {

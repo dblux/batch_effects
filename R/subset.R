@@ -8,27 +8,6 @@ subset_cols <- function(X, metadata, ...) {
 }
 
 
-#' Remove rows of dataframe which meet the condition
-#'
-#' Special syntax: 'row' indicates row of dataframe `X`
-#'
-#' @examples
-#' remove_rows(X, sum(row) == 0)
-#' remove_rows(X, var(row) == 0)
-remove_rows <- function(X, condition) {
-  idx <- vector()
-  for (i in seq_len(nrow(X))) {
-    row <- as.numeric(X[i, ])
-    # eval env defaults to calling env
-    # i.e. row is automatically used for expression
-    is_cond <- eval(substitute(condition))
-    idx <- c(idx, is_cond)
-  }
-  
-  X[!idx, ]
-}
-
-
 #' Select top n highly variable features
 #' @param X matrix or dataframe with rownames
 select_hvg <- function(X, n, return.features = FALSE) {
@@ -59,43 +38,53 @@ select_highexpr <- function(X, n, return.features = FALSE) {
 }
 
 
-# Filter probes with too many zeros
-#' @param df dataframe
-#' @param percent_threshold minimum percentage threshold of non-zero values
-#' @param metadata_df df containing class labels of samples
-#' @param logical_func a function that is either "all" or "any". (Either all or
-#' just one class have to pass the threshold)
-#' @return dataframe containing rows that meet threshold of non-zero
-#' values
-filterProbesets <- function(df1, percent_threshold, metadata_df = NULL,
-                            logical_func = any) {
-  if (is.null(metadata_df)) {
-    logical_df <- df1 != 0
-    selected_logvec <- rowSums(logical_df) > percent_threshold * ncol(df1)
-    print(paste("No. of probesets removed =",
-                nrow(df1) - sum(selected_logvec)))
-    return(df1[selected_logvec,])
+#' Remove sparse features with high percentage of zeros
+#'
+#' @param X Dataframe with dim (nfeature, nsample)
+#' @param pct_zero Percentage threshold of zeros. Features with percentage of
+#'   zeros above and equal to this threshold are removed.
+#' @param class Class labels of samples.
+#' @param func Function that is either "all" or "any". Features with
+#'   all/any classes having a larger percentage of zeros than "pct_zero" are
+#'   removed.
+#' @return Dataframe without sparse features.
+remove_sparse <- function(X, pct_zero, class = NULL, func = all) {
+  is_sparse <- function(X, pct_zero) rowSums(X == 0) / ncol(X) >= pct_zero
+  if (is.null(class)) {
+    idx <- is_sparse(X, pct_zero)
   } else {
-    class_factor <- metadata_df[colnames(df1),"class_info"]
-    logical_df <- data.frame(df1 != 0)
-    list_logical_df <- split.default(logical_df, class_factor)
-    list_logvec <- lapply(
-      list_logical_df,
-      function(df1) rowSums(df1) > (percent_threshold * ncol(df1))
-    )
-    combined_log_df <- do.call(cbind,list_logvec)
-    selected_logvec <- apply(combined_log_df, 1, logical_func)
-    # selected_logvec <- do.call(mapply, c(logical_func, list_logvec))
-    print(paste("No. of probesets removed =",
-                nrow(df1) - sum(selected_logvec)))
-    return(df1[selected_logvec,])
+    X_classes <- split.default(data.frame(X), class)
+    list_idx <- lapply(X_classes, is_sparse, pct_zero)
+    idx <- do.call(mapply, c(func, list_idx))
   }
+  return(X[!idx, ])
+}
+
+
+#' Remove rows of dataframe which meet the condition
+#'
+#' Special syntax: 'row' indicates row of dataframe `X`
+#'
+#' @examples
+#' remove_rows(X, sum(row) == 0)
+#' remove_rows(X, var(row) == 0)
+remove_rows <- function(X, condition) {
+  idx <- vector()
+  for (i in seq_len(nrow(X))) {
+    row <- as.numeric(X[i, ])
+    # eval env defaults to calling env
+    # i.e. row is automatically used for expression
+    is_cond <- eval(substitute(condition))
+    idx <- c(idx, is_cond)
+  }
+  
+  X[!idx, ]
 }
 
 
 #' Removes ambiguous and AFFY probesets from dataframe
 #' Rowname of affymetrix probesets
-removeProbesets <- function(df) {
+remove_affymetrix <- function(df) {
   logical_vec <- grepl("[0-9]_at", rownames(df)) &
     !startsWith(rownames(df), "AFFX")
   print(paste0("No. of ambiguous and AFFY probesets removed: ",

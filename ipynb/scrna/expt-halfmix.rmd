@@ -5,6 +5,9 @@ library(ggplot2)
 library(cowplot)
 theme_set(theme_bw())
 
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+
 src_files <- list.files("R", full.names = TRUE)
 for (f in src_files) {
   source(f)
@@ -12,67 +15,61 @@ for (f in src_files) {
 }
 ```
 ```{r}
-mean_nonzero <- function(X) {
-  mu <- rowSums(X) / rowSums(X != 0)
-  mu[is.nan(mu)] <- 0 # nan due to division by zero
-  return(mu)
-}
-```
-```{r}
-halfmix <- readRDS("data/293t_jurkat/processed/halfmix-pca.rds")
+halfmix <- readRDS("data/293t_jurkat/processed/halfmix.rds")
 ```
 # QC
 ```{r}
+FeatureScatter(
+  halfmix_sub,
+  feature1 = "nCount_RNA", feature2 = "nFeature_RNA",
+  group.by = "celltype"
+)
+FeatureScatter(
+  halfmix_sub,
+  feature1 = "nCount_RNA", feature2 = "percent_ribo",
+  group.by = "celltype"
+)
+```
+```{r}
 ax <- VlnPlot(
   halfmix,
-  features = c("nFeature_RNA"),
-  ncol = 1, group.by = "celltype",
+  features = c("nFeature_RNA", "nCount_RNA"),
+  group.by = "celltype",
   pt.size = .2
 )
 ax
 # file <- "tmp/halfmix_celltype-nfeature.png"
 # ggsave(file, ax, width = 6, height = 6)
 ```
-# Findings
-- Extreme variability in total counts and number of missing values even in cells in the same batch and same class
-- Extremely high number of dropouts in a sample (90%)
-- Different celltypes have different total counts 
-- Not much difference between batches (different times)
-- <1% of features have counts above 10
+- Only ribo genes present, no mito genes
 ```{r}
-FeatureScatter(
-  subset(halfmix, orig.ident == "zheng"),
-  feature1 = "nCount_RNA", feature2 = "nFeature_RNA",
-  group.by = "celltype"
+# Map ensembl id to gene symbol
+mapping <- mapIds(
+  org.Hs.eg.db,
+  keys = rownames(halfmix),
+  keytype = "ENSEMBL",
+  column = "SYMBOL"
 )
-```
-# Dropouts
-- A third of features have no values (~12000 samples)
-- Around 2000 features have <50% dropouts
-- Dropouts do not seem to be associated with batch
-- Probability of dropouts seem to be associated with counts
-```{r}
-# hist(halfmix$nFeature_RNA / nrow(halfmix), breaks = 20, probability = TRUE)
-
-# Plot PCA
-# Check log
-# Filter cells and features
-# Seurat batch correction
+print(sum(grepl("^MT-", mapping)))
+ribo_genes <- rownames(halfmix)[grep("^RP[SL]", mapping)]
+halfmix$percent_ribo <-
+  colSums(GetAssayData(halfmix, slot = "counts")[ribo_genes, ]) /
+  halfmix$nCount_RNA
 ```
 ```{r}
-# Subset mixed batch and split by celltype
-zheng <- subset(halfmix, orig.ident == "zheng")
-list_cells <- SplitObject(zheng, "celltype")
-
-for (i in seq_len(length(list_cells))) {
-  counts <- GetAssayData(list_cells[[i]], "counts")
-  metafeatures <- data.frame(
-    pct_dropout = rowSums(counts == 0) / ncol(counts),
-    nzmean = mean_nonzero(counts),
-    row.names = rownames(counts)
-  )
-  list_cells[[i]]$RNA@meta.features <- metafeatures
-}
+halfmix_sub <- subset(
+  halfmix,
+  subset = nFeature_RNA > 1500 & percent_ribo > 0.2 &
+    nCount_RNA > 2000 & nCount_RNA < 4e4
+)
+table(halfmix_sub$batch, halfmix_sub$celltype)
+halfmix_sub <- NormalizeData(halfmix_sub, normalization.method = "LogNormalize")
+```
+```{r}
+# TODO: select features
+# remove ribo genes
+# remove dropout features
+# TODO: decide on subset matrix
 ```
 ```{r}
 ax <- ggplot() +
