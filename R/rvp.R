@@ -158,6 +158,8 @@ rvp.Seurat <- function(
   }
   rvp_obj <- rvp.default(X, batch, cls, ret.percent = FALSE)
   if (is.numeric(nperm)) {
+    # TODO: Re-design RVP - Make standalone permtest func (helper func?)
+    # TODO: Multiprocessing for permtest
     stopifnot(nperm >= 100)
     null_distr <- numeric()
     for (i in seq_len(nperm)) {

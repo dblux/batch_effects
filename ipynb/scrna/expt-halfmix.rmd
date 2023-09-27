@@ -15,33 +15,8 @@ for (f in src_files) {
 }
 ```
 ```{r}
-halfmix <- readRDS("data/293t_jurkat/processed/halfmix.rds")
+halfmix <- readRDS("data/jurkat_293t/processed/halfmix.rds")
 ```
-# QC
-```{r}
-FeatureScatter(
-  halfmix_sub,
-  feature1 = "nCount_RNA", feature2 = "nFeature_RNA",
-  group.by = "celltype"
-)
-FeatureScatter(
-  halfmix_sub,
-  feature1 = "nCount_RNA", feature2 = "percent_ribo",
-  group.by = "celltype"
-)
-```
-```{r}
-ax <- VlnPlot(
-  halfmix,
-  features = c("nFeature_RNA", "nCount_RNA"),
-  group.by = "celltype",
-  pt.size = .2
-)
-ax
-# file <- "tmp/halfmix_celltype-nfeature.png"
-# ggsave(file, ax, width = 6, height = 6)
-```
-- Only ribo genes present, no mito genes
 ```{r}
 # Map ensembl id to gene symbol
 mapping <- mapIds(
@@ -56,71 +31,144 @@ halfmix$percent_ribo <-
   colSums(GetAssayData(halfmix, slot = "counts")[ribo_genes, ]) /
   halfmix$nCount_RNA
 ```
+# QC
+```{r}
+FeatureScatter(
+  halfmix_sub,
+  feature1 = "nCount_RNA", feature2 = "nFeature_RNA",
+  group.by = "batch", shuffle = TRUE
+)
+FeatureScatter(
+  halfmix_sub,
+  feature1 = "nCount_RNA", feature2 = "percent_ribo",
+  group.by = "batch", shuffle = TRUE
+)
+```
+```{r}
+ax <- VlnPlot(
+  halfmix,
+  features = c("percent_ribo", "nCount_RNA"),
+  group.by = "batch",
+  pt.size = .2
+)
+ax
+# file <- "tmp/halfmix_celltype-nfeature.png"
+# ggsave(file, ax, width = 6, height = 6)
+```
+- Only ribo genes present, no mito genes
 ```{r}
 halfmix_sub <- subset(
   halfmix,
-  subset = nFeature_RNA > 1500 & percent_ribo > 0.2 &
-    nCount_RNA > 2000 & nCount_RNA < 4e4
+  subset = nFeature_RNA > 1500 &
+    nCount_RNA < 3e4 &
+    percent_ribo > 0.25
 )
-table(halfmix_sub$batch, halfmix_sub$celltype)
-halfmix_sub <- NormalizeData(halfmix_sub, normalization.method = "LogNormalize")
+table(halfmix_sub$celltype, halfmix_sub$batch)
+head(colnames(halfmix))
 ```
+# Feature selection: Remove ribo and sparse genes
 ```{r}
-# TODO: select features
-# remove ribo genes
-# remove dropout features
-# TODO: decide on subset matrix
-```
-```{r}
-ax <- ggplot() +
-  geom_point(
-    data = list_cells[[1]]$RNA@meta.features,
-    aes(x = nzmean, y = pct_dropout),
-    color = "blue", pch = 1
-  ) +
-  geom_point(
-    data = list_cells[[2]]$RNA@meta.features,
-    aes(x = nzmean, y = pct_dropout),
-    color = "red", pch = 1
-  ) +
-  xlim(0, 10)
-file <- "tmp/zheng-pct_dropout-nzmean.png"
-ggsave(file, ax, width = 5, height = 5)
-```
-```{r}
-counts <- GetAssayData(halfmix, "counts")
-metafeatures <- data.frame(
-  pct_dropout = rowSums(counts == 0) / ncol(counts),
-  nzmean = mean_nonzero(counts),
-  row.names = rownames(counts)
+sparse_genes <- remove_sparse(
+  GetAssayData(halfmix_sub, "counts"),
+  0.95, halfmix_sub$celltype,
+  ret.features = TRUE
 )
-threshold <- 10
-ax <- ggplot(metafeatures) +
-  geom_point(
-    aes(x = nzmean, y = pct_dropout),
-    pch = 1
-  ) +
-  xlim(0, 10)
-file <- "tmp/halfmix-pct_dropout-nzmean.pdf"
-ggsave(file, ax, width = 5, height = 5)
+rm_genes <- union(ribo_genes, sparse_genes)
+halfmix_sel <- halfmix_sub[!(rownames(halfmix_sub) %in% rm_genes), ]
+table(halfmix_sel$celltype, halfmix_sel$batch)
+```
+# Subset
+```{r}
+# With batch effects
+tabnames <- list(unique(halfmix_sel$celltype), unique(halfmix_sel$batch))
+ct_bal <- matrix(
+  c(800, 800, 0, 800, 800, 0),
+  2, 3, dimnames = tabnames
+)
+ct_imbal1 <- matrix(
+  c(400, 1200, 0, 400, 1200, 0),
+  2, 3, dimnames = tabnames
+)
+ct_imbal2 <- matrix(
+  c(1200, 400, 0, 1200, 400, 0),
+  2, 3, dimnames = tabnames
+)
+# With batch effects
+idx_bal <- idx_imbal1 <- idx_imbal2 <- numeric()
+for (g in rownames(ct_bal)) {
+  for (k in colnames(ct_bal)) {
+    j_kg <- which(halfmix_sel$batch == k & halfmix_sel$celltype == g)
+    if (length(j_kg) == 0)
+      next
+    # balanced data set
+    n1_kg <- ct_bal[g, k]
+    j1_kg <- sample(j_kg, n1_kg)
+    idx_bal <- c(idx_bal, j1_kg)
+    # imbalanced data set
+    n2_kg <- ct_imbal1[g, k]
+    j2_kg <- sample(j_kg, n2_kg)
+    idx_imbal1 <- c(idx_imbal1, j2_kg)
+    # imbalanced data set
+    n3_kg <- ct_imbal2[g, k]
+    j3_kg <- sample(j_kg, n3_kg)
+    idx_imbal2 <- c(idx_imbal2, j3_kg)
+  }
+}
+halfmix_bal <- halfmix_sel[, idx_bal]
+halfmix_imbal1 <- halfmix_sel[, idx_imbal1]
+halfmix_imbal2 <- halfmix_sel[, idx_imbal2]
+print(table(halfmix_bal$celltype, halfmix_bal$batch))
+print(table(halfmix_imbal1$celltype, halfmix_imbal1$batch))
+print(table(halfmix_imbal2$celltype, halfmix_imbal2$batch))
 ```
 ```{r}
-x <- counts[, 1]
-hist(x[x > 0 & x < 150])
-length(x[x == 8])
-# head(unname(sort(x, decreasing = TRUE)), 100)
+# Without batch effects
+tabnames <- list(unique(halfmix_sel$celltype), 1:3)
+ct_bal <- matrix(
+  c(600, 600, 0, 600, 600, 0),
+  2, 3, dimnames = tabnames
+)
+ct_imbal <- matrix(
+  c(300, 900, 0, 300, 900, 0),
+  2, 3, dimnames = tabnames
+)
+halfmix_b1 <- subset(halfmix_sel, subset = batch == "zheng")
+
+idx_bal <- idx_imbal <- numeric()
+batch_bal <- batch_imbal <- rep(NA, ncol(halfmix_b1))
+for (g in rownames(ct_bal)) {
+  j1_g <- j2_g <- which(halfmix_b1$celltype == g)
+  for (k in colnames(ct_bal)) {
+    # balanced data
+    n1_kg <- ct_bal[g, k]
+    j1_kg <- sample(j1_g, n1_kg)
+    j1_g <- setdiff(j1_g, j1_kg)
+    idx_bal <- c(idx_bal, j1_kg)
+    batch_bal[j1_kg] <- k
+    # imbalanced data
+    n2_kg <- ct_imbal[g, k]
+    j2_kg <- sample(j2_g, n2_kg)
+    j2_g <- setdiff(j2_g, j2_kg)
+    idx_imbal <- c(idx_imbal, j2_kg)
+    batch_imbal[j2_kg] <- k
+  }
+}
+halfmix_b1_bal <- halfmix_b1[, idx_bal]
+halfmix_b1_bal$batch <- batch_bal[idx_bal]
+halfmix_b1_imbal <- halfmix_b1[, idx_imbal]
+halfmix_b1_imbal$batch <- batch_imbal[idx_imbal]
+table(halfmix_b1_bal$celltype, halfmix_b1_bal$batch)
+table(halfmix_b1_imbal$celltype, halfmix_b1_imbal$batch)
 ```
 # Plot
 ## PCA
 ```{r}
-halfmix <- NormalizeData(halfmix)
-halfmix <- FindVariableFeatures(halfmix)
-halfmix <- ScaleData(halfmix, do.scale = FALSE)
-halfmix <- RunPCA(halfmix)
-saveRDS(halfmix, "data/293t_jurkat/processed/halfmix-pca.rds")
-```
-```{r}
-ax <- PCAPlot(halfmix, shuffle = TRUE)
+halfmix_sub1 <- halfmix_sub %>%
+  NormalizeData() %>%
+  FindVariableFeatures() %>%
+  ScaleData(do.scale = FALSE) %>%
+  RunPCA()
+ax <- DimPlot(halfmix_sub1, reduction = "pca")
 file <- "tmp/pca-halfmix.png"
 ggsave(file, ax, width = 5, height = 5)
 ```
@@ -130,7 +178,3 @@ ax <- DimPlot(halfmix, reduction = "umap")
 file <- "tmp/umap-halfmix.png"
 ggsave(file, ax, width = 5, height = 5)
 ```
-```{r}
-```
-
-# TODO: Run metrics and plot PCA

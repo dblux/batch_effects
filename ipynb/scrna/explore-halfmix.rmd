@@ -19,7 +19,7 @@ mean_nonzero <- function(X) {
 }
 ```
 ```{r}
-halfmix <- readRDS("data/293t_jurkat/processed/halfmix-pca.rds")
+halfmix <- readRDS("data/jurkat_293t/processed/halfmix.rds")
 ```
 # QC
 ```{r}

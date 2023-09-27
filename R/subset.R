@@ -47,17 +47,25 @@ select_highexpr <- function(X, n, return.features = FALSE) {
 #' @param func Function that is either "all" or "any". Features with
 #'   all/any classes having a larger percentage of zeros than "pct_zero" are
 #'   removed.
-#' @return Dataframe without sparse features.
-remove_sparse <- function(X, pct_zero, class = NULL, func = all) {
+#' @param ret.features Logical indicating whether to return sparse features
+#' @return Data frame without sparse features or vector of sparse features.
+remove_sparse <- function(
+  X, pct_zero, class = NULL, func = all, ret.features = FALSE
+) {
   is_sparse <- function(X, pct_zero) rowSums(X == 0) / ncol(X) >= pct_zero
   if (is.null(class)) {
     idx <- is_sparse(X, pct_zero)
   } else {
+    stopifnot(length(class) == ncol(X))
     X_classes <- split.default(data.frame(X), class)
     list_idx <- lapply(X_classes, is_sparse, pct_zero)
     idx <- do.call(mapply, c(func, list_idx))
   }
-  return(X[!idx, ])
+  if (ret.features) {
+    return(rownames(X)[idx])
+  } else {
+    return(X[!idx, ])
+  }
 }
 
 
