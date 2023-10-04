@@ -161,20 +161,27 @@ rvp.Seurat <- function(
     # TODO: Re-design RVP - Make standalone permtest func (helper func?)
     # TODO: Multiprocessing for permtest
     stopifnot(nperm >= 100)
+    pb <- progress::progress_bar$new(
+      format = "Permutation tests: [:bar] :current/:total in :elapsed.",
+      total = nperm, clear = FALSE, width = 75
+    )
+    capture.output(pb$tick(0), file = nullfile())
     null_distr <- numeric()
     for (i in seq_len(nperm)) {
       shuffled_batch <- sample(batch)
       null_pct <- rvp.default(X, shuffled_batch, cls, ret.percent = TRUE)
       null_distr <- c(null_distr, null_pct)
+      pb$tick()
     }
     pct_batch <- rvp_obj$percent.batch
     pvalue <- sum(null_distr > pct_batch) / nperm
     rvp_obj$null.distribution <- null_distr
     rvp_obj$p.value <- pvalue
   }
-  if (ret.percent) {
+  if (!is.numeric(nperm) && ret.percent) {
     return(rvp_obj$percent.batch)
   } else {
+    # If nperm is numeric obj will be returned regardless of ret.percent
     return(rvp_obj)
   }
 }
