@@ -24,9 +24,9 @@ simulate_microarray <- function(
   m,
   crosstab,
   delta = 1,
-  gamma = 1,
+  gamma = 0.5,
   phi = 0.1,
-  zeta = 1.5,
+  zeta = 1,
   epsilon = 0.5, # limit = (, 1)
   kappa = 0.2, # limit = (, 0.3)
   a = 40,
@@ -34,9 +34,9 @@ simulate_microarray <- function(
   dropout = FALSE,
   c = 2,
   d = -6,
-  seed = NULL
+  seed = NA
 ) {
-  if (!is.null(seed))
+  if (!is.na(seed))
     set.seed(seed)
 
   n <- sum(crosstab)
@@ -44,7 +44,7 @@ simulate_microarray <- function(
   n_batch <- ncol(crosstab)
   gs <- rep(rep(seq_len(n_class), n_batch), crosstab) # class encoding
   ks <- rep(rep(seq_len(n_batch), each = n_class), crosstab) # batch encoding
-  # metadata
+  # Metadata
   gs_alphabet <- LETTERS[gs]
   sid <- paste(paste0("ID", seq_len(n)), gs_alphabet, ks, sep = "_")
   metadata <- data.frame(
@@ -54,14 +54,20 @@ simulate_microarray <- function(
   )
 
   log_psi <- rgamma(m, a, scale = b)
+  # TODO: Test what happens when n_class = 1
   log_rho <- cbind(
     rep(0, m), # class 1 has zero log fold change w.r.t. itself
     matrix(rnorm(m * (n_class - 1), 0, zeta), m, n_class - 1)
   )
+  colnames(log_rho) <- LETTERS[seq_len(n_class)]
   n_diffexpr <- round(phi * m, 0)
   # features not in the top phi percent according to log-fc are set to zero
   rank_rho <- apply(log_rho, 2, function(x) rank(-abs(x)))
   log_rho[rank_rho > n_diffexpr] <- 0
+  # Collating differentially expressed features
+  diff.features <- NULL
+  if (n_class > 1)
+    diff.features <- apply(log_rho[, -1, drop = FALSE] != 0, 2, which)
 
   Z <- matrix(0, m, n)
   colnames(Z) <- sid
@@ -72,15 +78,18 @@ simulate_microarray <- function(
     }
   }
   log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
-  omega <- matrix(0, m, n) # batch effect terms
+  # Omega: Batch effect terms
+  omega <- matrix(0, m, n)
   for (i in seq_len(m)) {
     for (j in seq_len(n)) {
       k <- ks[j]
       omega[i, j] <- rnorm(1, log_beta[i, k], gamma)
     }
   }
-  log_alpha <- rnorm(n, 0, kappa) # log of sample specific scaling factor
+  # Log of sample specific scaling factor
+  log_alpha <- rnorm(n, 0, kappa)
   Z <- sweep(Z, 2, log_alpha, `+`)
+
   X <- Z + omega
   X[X < 0] <- 0 # set negative values to zero
 
@@ -94,11 +103,22 @@ simulate_microarray <- function(
     }
     X <- X * indicator
   }
+  params <- c(
+    delta = delta, gamma = gamma,
+    phi = phi, zeta = zeta,
+    epsilon = epsilon, kappa = kappa,
+    a = a, b = b,
+    dropout = dropout,
+    c = c, d = d,
+    seed = seed
+  )
 
   list(
-    X = X, Z = Z, metadata = metadata,
-    n_diffexpr = n_diffexpr, omega = omega,
-    log_psi = log_psi, log_rho = log_rho, log_beta = log_beta
+    X = X, metadata = metadata,
+    diff.features = diff.features,
+    Z = Z, batch.terms = omega,
+    class.logfc = log_rho, batch.logfc = log_beta,
+    params = params
   )
 }
 
