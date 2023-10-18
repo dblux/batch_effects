@@ -1,9 +1,12 @@
 ```{r}
 library(Seurat)
+library(scater)
 library(magrittr)
 library(ggplot2)
 library(cowplot)
 theme_set(theme_bw())
+
+library(CellMixS)
 library(kBET)
 library(lisi)
 
@@ -151,21 +154,31 @@ results <- lapply(
 saveRDS(results, "tmp/villani-results_k80.rds")
 ```
 ```{r}
-objs <- readRDS("tmp/villani-results_k15.rds")
+objs <- readRDS("tmp/halfmix-results_k500.rds")
+for (idx in names(objs)) {
+  cat(idx, fill = T)
+  obj <- objs[[idx]]
+  cat(paste("k =", obj$kbet$params$k0), fill = T)
+  cat(paste("cms:", mean(obj$cms$cms)), fill = T)
+  cat(paste("kbet:", obj$kbet$summary$kBET.observed[1]), fill = T)
+  cat(paste("blisi:", mean(obj$lisi$batch)), fill = T)
+  cat(fill = T)
+}
+# CMS
+for (idx in names(objs)) {
+  cat(idx, fill = T)
+  obj <- objs[[idx]]
+  # print(summary(obj$sce$cms))
+  # print(summary(obj$sce$cms_smooth))
+  cat(mean(obj$sce$cms), fill = T)
+}
+# RVP
 # for (idx in names(objs)) {
 #   cat(idx, fill = T)
 #   obj <- objs[[idx]]
 #   cat(obj$percent.batch, fill = T)
 #   cat(obj$p.value, fill = T)
 # }
-for (idx in names(objs)) {
-  cat(idx, fill = T)
-  obj <- objs[[idx]]
-  cat(obj$kbet$summary$kBET.observed[1], fill = T)
-  cat(obj$kbet$params$k0, fill = T)
-  cat(paste("blisi:", mean(obj$lisi$batch)), fill = T)
-  cat(fill = T)
-}
 ```
 # Plot
 ```{r}
@@ -213,4 +226,7 @@ ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
 ax
 # file <- "tmp/pca-villani_sel.png"
 # ggsave(file, ax, width = 10, height = 5)
+```
+# CellMixS
+```{r}
 ```

@@ -4,8 +4,7 @@ library(magrittr)
 library(ggplot2)
 library(cowplot)
 theme_set(theme_bw())
-library(AnnotationDbi)
-library(org.Hs.eg.db)
+library(biomaRt)
 library(kBET)
 library(lisi)
 
@@ -80,15 +79,15 @@ dim(halfmix_sel)
 # with batch effects
 tabnames <- list(unique(halfmix_sel$celltype), unique(halfmix_sel$batch))
 ct_bal <- matrix(
-  c(800, 800, 0, 800, 800, 0),
+  c(600, 600, 0, 600, 600, 0),
   2, 3, dimnames = tabnames
 )
 ct_imbal1 <- matrix(
-  c(400, 1200, 0, 400, 1200, 0),
+  c(300, 900, 0, 300, 900, 0),
   2, 3, dimnames = tabnames
 )
 ct_imbal2 <- matrix(
-  c(1200, 400, 0, 1200, 400, 0),
+  c(900, 300, 0, 900, 300, 0),
   2, 3, dimnames = tabnames
 )
 # with batch effects
@@ -170,8 +169,14 @@ halfmix_objs <- list(
 saveRDS(halfmix_objs, "tmp/halfmix-datasets.rds")
 ```
 ```{r}
-file <- "tmp/halfmix-raw_100.rds"
+file <- "tmp/halfmix-results_k0.rds"
 objs <- readRDS(file)
+for (idx in names(objs)) {
+  cat(idx, fill = T)
+  obj <- objs[[idx]]
+  cat(obj$percent.batch, fill = T)
+  cat(obj$p.value, fill = T)
+}
 for (idx in names(objs)) {
   cat(idx, fill = T)
   obj <- objs[[idx]]
@@ -184,6 +189,7 @@ for (idx in names(objs)) {
 # Plot
 ## PCA
 ```{r}
+halfmix_objs <- readRDS("tmp/halfmix-datasets.rds")
 for (idx in names(halfmix_objs)) {
   halfmix_sel1 <- halfmix_objs[[idx]] %>%
     ScaleData(do.scale = FALSE) %>%

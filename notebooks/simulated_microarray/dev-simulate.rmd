@@ -2,9 +2,10 @@
 library(ggplot2)
 
 src_files <- list.files("R", full.names = TRUE)
+cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
   source(f)
-  cat(sprintf('Sourced file: %s\n', f))
+  cat(f, fill = TRUE)
 }
 ```
 # Simulate data set

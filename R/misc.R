@@ -61,50 +61,90 @@ kegg_df <- function(kegg_fpath) {
               quote = F, sep = "\t", row.names = F)
 }
 
-#' Evaluate batch effects in scRNA-Seq data
+#' Evaluate batch effects
+#'
+#' @param obj Either a Seurat object or dataset obj 
 eval_batch <- function(
-  seurat, batchname, classname, slot = "data",
-  nperm = NULL, k0 = NULL, perplexity = 30,
-  ret.scores = TRUE, do.rvp = TRUE
+  obj, batchname, classname, slot = "data",
+  metrics = c("rvp", "cms", "kbet", "lisi", "gpca", "pvca"),
+  nperm = 0, k.cms = 50, k0 = NULL, perplexity = 30,
+  ret.scores = FALSE
 ) {
-  if (do.rvp) {
-    rvp_seurat <- rvp(
-      seurat, batchname, classname,
-      nperm = nperm, ret.percent = FALSE
-    )
+  rvp_obj <- sce <- kbet <- lisi <- gpca <- pvca <- NULL
+  scores <- rep(NA, 6)
+  names(scores) <- c("rvp", "cms", "kbet", "lisi", "gpca", "pvca")
+
+  if (class(obj) == "Seurat") {
+    cat("Detected: Seurat object", fill = TRUE)
+    X <- GetAssayData(obj, slot = slot)
+    metadata <- obj@meta.data
+    n <- dim(obj)[2]
   } else {
-    rvp_seurat <- NULL
+    cat("Detected: Dataset object", fill = TRUE)
+    X <- obj$X
+    metadata <- obj$metadata
+    n <- ncol(X)
   }
-  X <- GetAssayData(seurat, slot = slot)
-  metadata <- seurat@meta.data
-  kbet_size <- dim(seurat)[2]
-  cat("Calculating kBET...\n")
-  kbet_estimate <- kBET(
-    Matrix::t(X),
-    metadata[[batchname]],
-    k0 = k0,
-    testSize = kbet_size,
-    n_repeat = 1,
-    verbose = TRUE
-  )
-  rejection_rate <- kbet_estimate$summary$kBET.observed[1]
-  cat("Calculating LISI...\n")
-  lisi_results <- compute_lisi(
-    Matrix::t(X),
-    metadata,
-    c(batchname, classname),
-    perplexity = perplexity
-  )
-  blisi <- mean(lisi_results[[batchname]])
+
+  for (metric in metrics) {
+    if (metric == "rvp") {
+      cat("Calculating RVP...", fill = TRUE)
+      rvp_obj <- rvp(
+        Matrix::t(X), metadata[[batchname]], metadata[[classname]],
+        ret.percent = FALSE
+      )
+      scores[metric] <- rvp_obj$percent.batch
+    } else if (metric == "cms"){
+      cat("Calculating CMS...", fill = TRUE)
+      sce <- SingleCellExperiment(list(logcounts = X), colData = metadata)
+      sce <- cms(sce, k = k.cms, group = batchname)
+      scores[metric] <- mean(sce@colData$cms)
+    } else if (metric == "kbet"){
+      cat("Calculating kBET...", fill = TRUE)
+      kbet <- kBET(
+        Matrix::t(X),
+        metadata[[batchname]],
+        k0 = k0,
+        testSize = n,
+        n_repeat = 1,
+        verbose = TRUE
+      )
+      scores[metric] <- kbet$summary$kBET.observed[1]
+    } else if (metric == "lisi"){
+      cat("Calculating LISI...", fill = TRUE)
+      lisi <- compute_lisi(
+        Matrix::t(X),
+        metadata,
+        c(batchname, classname),
+        perplexity = perplexity
+      )
+      scores[metric] <- mean(lisi[[batchname]])
+    } else if (metric == "gpca") {
+      cat("Calculating gPCA...", fill = TRUE)
+      # modified to fix error when nperm = 0
+      gpca <- gPCA(Matrix::t(X), metadata[[batchname]], nperm = 0)
+    } else if (metric == "pvca") {
+      cat("Calculating PVCA...", fill = TRUE)
+      meta_metadata <- data.frame(labelDescription = colnames(metadata))
+      pheno_data <- new(
+        "AnnotatedDataFrame", data = metadata, varMetadata = meta_metadata
+      )
+      eset <- Biobase::ExpressionSet(assayData = X, phenoData = pheno_data)
+      pvca <- pvcaBatchAssess(eset, c('batch', 'class'), 0.6)
+    }
+  }
 
   if (ret.scores) {
-    return(
-      c(rvp = rvp_seurat$percent.batch, kbet = rejection_rate, lisi = blisi)
-    )
+    return(scores)
   } else {
-    return(
-      list(rvp = rvp_seurat, kbet = kbet_estimate, lisi = lisi_results)
-    )
+    return(list(
+      rvp = rvp_obj,
+      cms = sce@colData,
+      kbet = kbet,
+      lisi = lisi,
+      gpca = gpca,
+      pvca = pvca
+    ))
   }
 }
 

@@ -201,6 +201,9 @@ calc_logfc <- function(df1, df2, func = mean, logged = T) {
 #' Naive row-wise two-sample t-test for every probe
 #' Does a t-test between every row of matrices a and b
 #' Arguments: Dataframe with both clases, size of class A, ...
+#' @param FUN Hypothesis test function. E.g. t.test
+#' @param X Data frame with dim (n_samples, n_features)
+#' @param Y Data frame with dim (n_samples, n_features)
 #' @param paired logical indicating whether X contains paired data or not
 calc_univariate <- function(
   FUN, X, Y = NULL, n_split = NULL,
@@ -234,4 +237,3 @@ calc_univariate <- function(
     return(list_htest)
   }
 }
-

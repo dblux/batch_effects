@@ -141,7 +141,7 @@ rvp.SingleCellExperiment <- function(
 #' @export
 rvp.Seurat <- function(
   obj, batchname, classname,
-  slot = "data", nperm = NULL, ret.percent = TRUE
+  slot = "data", nperm = 0, ret.percent = TRUE
 ) {
   X <- if (length(find("LayerData")) == 0) {
     Matrix::t(Seurat::GetAssayData(obj, slot))
@@ -157,7 +157,7 @@ rvp.Seurat <- function(
     obj@meta.data[[classname]]
   }
   rvp_obj <- rvp.default(X, batch, cls, ret.percent = FALSE)
-  if (is.numeric(nperm)) {
+  if (nperm > 0) {
     # TODO: Re-design RVP - Make standalone permtest func (helper func?)
     # TODO: Multiprocessing for permtest
     stopifnot(nperm >= 100)

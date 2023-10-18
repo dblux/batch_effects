@@ -154,7 +154,7 @@ cellbench_objs <- list(
 saveRDS(cellbench_objs, "tmp/cellbench-datasets.rds")
 ```
 ```{r}
-file <- "tmp/halfmix-results_k200.rds"
+file <- "tmp/cellbench-k60.rds"
 objs <- readRDS(file)
 for (idx in names(objs)) {
   cat(idx, fill = T)
