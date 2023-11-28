@@ -135,11 +135,11 @@ gPCA <- function(
   }
 
   list(
-    delta=delta,p.val=p.val,delta.p=delta.p,
-    batch=batch,filt=filt,n=n,p=p,b=b,
-    PCg=PC.g,PCu=PC.u,
-    varPCu1=varPCu1,varPCg1=varPCg1,nperm=nperm,
-    cumulative.var.u=cumulative.var.u,
-    cumulative.var.g=cumulative.var.g
+    delta=delta,p.val=p.val,delta.p=delta.p
+    # batch=batch,filt=filt,n=n,p=p,b=b,
+    # PCg=PC.g,PCu=PC.u,
+    # varPCu1=varPCu1,varPCg1=varPCg1,nperm=nperm,
+    # cumulative.var.u=cumulative.var.u,
+    # cumulative.var.g=cumulative.var.g
   )
 }

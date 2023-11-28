@@ -61,7 +61,7 @@ kegg_df <- function(kegg_fpath) {
               quote = F, sep = "\t", row.names = F)
 }
 
-#' Evaluate batch effects
+#' Evaluate batch effects using a given set of metrics
 #'
 #' @param obj Either a Seurat object or dataset obj 
 eval_batch <- function(
@@ -79,6 +79,11 @@ eval_batch <- function(
     X <- GetAssayData(obj, slot = slot)
     metadata <- obj@meta.data
     n <- dim(obj)[2]
+  } else if (class(obj) == "SingleCellExperiment") {
+    cat("Detected: SingleCellExperiment object", fill = TRUE)
+    X <- logcounts(obj)
+    metadata <- obj@colData
+    n <- ncol(obj)
   } else {
     cat("Detected: Dataset object", fill = TRUE)
     X <- obj$X

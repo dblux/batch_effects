@@ -1,16 +1,17 @@
 library(Seurat)
-library(magrittr)
 
+file <- "data/villani/raw/GSE94820_raw.expMatrix_DCnMono.discovery.set.submission.txt.gz"
+raw <- read.table(file, sep = "\t")
+tpm <- raw[, 1:768]
 
-file <- "data/villani/processed/villani-sce.rds"
-villani <- readRDS(file)
-vill <- as.Seurat(villani, counts = NULL, data = "tpm")
-vill <- RenameAssays(vill, originalexp = "tpm")
-colnames(vill@meta.data)[2] <- "celltype"
-Idents(vill) <- vill@meta.data$batch
-vill <- vill %>%
-  FindVariableFeatures() %>%
-  ScaleData(do.scale = FALSE) %>%
-  RunPCA()
+# Metadata
+info <- strsplit(colnames(tpm), split = "_")
+metadata <- data.frame(do.call(rbind, info))
+colnames(metadata) <- c("celltype", "patient", "cell")
+batch <- ifelse(metadata$patient %in% c("P7", "P8", "P9", "P10"), 1, 2)
+metadata$batch <- as.factor(batch)
+rownames(metadata) <- colnames(tpm)
+
+villani <- CreateSeuratObject(tpm, meta.data = metadata)
 ofile <- "data/villani/processed/villani-seurat.rds"
-saveRDS(vill, ofile)
+saveRDS(villani, ofile)

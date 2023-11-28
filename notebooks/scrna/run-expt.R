@@ -54,9 +54,10 @@ cat(sprintf(
 
 
 library(Seurat)
+library(SingleCellExperiment)
+library(CellMixS)
 library(kBET)
 library(lisi)
-library(CellMixS)
 
 files <- c("R/misc.R", "R/rvp.R")
 for (file in files) {
@@ -69,7 +70,7 @@ cat(sprintf("Reading file: %s", opt$file), fill = TRUE)
 datasets <- readRDS(opt$file)
 
 results <- lapply(
-  datasets, eval_batch, "batch", "celltype",
+  datasets, eval_batch, "Batch", "Group",
   metrics = metrics,
   nperm = nperm, k.cms = k.cms, k0 = k0, perplexity = perplexity
 )

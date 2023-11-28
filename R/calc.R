@@ -41,12 +41,11 @@ calcTPM <- function(X, feature_length) {
   return(tpm)
 }
 
-
-norm <- function(x, p) sum(x^p) ^ (1/p)
-
-
-#' Calculates l2-norm of vector
-l2norm <- function(x) sqrt(sum(x ^ 2))
+#' Calculates p-norm of a vector.
+#'
+#' @param x Numeric vector
+#' @param p Numeric indicating the p-norm. Defaults to the L2 norm.
+lpnorm <- function(x, p = 2) sum(abs(x) ^ p) ^ (1 / p)
 
 
 #' Calculates cosine similarity between two vectors

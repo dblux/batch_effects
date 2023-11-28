@@ -1,81 +1,99 @@
 #!/usr/bin/env Rscript
 
-source('../relapse_prediction/R/rvp.R')
-source('../relapse_prediction/R/gpca.R')
-
-# CMDLINE ARGUMENTS
-args = commandArgs(trailingOnly=TRUE)
+# Command-line arguments
+args <- commandArgs(trailingOnly=TRUE)
 metric <- args[1]
 n <- as.numeric(args[2])
 outdir <- args[3]
 
-file <- sprintf('data/batchqc/sizes/batchqc-%d.rds', n)
+library(Seurat)
 
-# METADATA 
-ncond <- n / 4
-batch <- as.factor(rep(1:2, each = ncond * 2))
-class <- rep(rep(LETTERS[1:2], each = ncond), 2)
-metadata <- data.frame(batch, class)  # assign rownames below
 
-if (metric == 'RVP') {
-  X <- t(readRDS(file))
-  
-  start <- Sys.time()
-  rvp <- RVP(X, batch, class)
-  end <- Sys.time()
-  delta <- difftime(end, start, units = 'secs')
-  
-  file <- sprintf('%s%s-%d.rds', outdir, metric, n)
-  saveRDS(rvp, file)
-} else if (metric == 'gPCA') {
-  X <- t(readRDS(file))
+# Data
+file <- "data/panc8/panc8_sel.rds"
+panc8 <- readRDS(file)
+set.seed(1)
+sid <- sample(seq_len(ncol(panc8)), n)
+panc8_sub <- panc8[, sid]
+rm(panc8)
 
-  start <- Sys.time()
-  gpca <- gPCA.batchdetect(X, batch, nperm = 0) # modified to fix error when nperm = 0
-  end <- Sys.time()
-  delta <- difftime(end, start, units = 'secs')
-} else if (metric == 'PVCA') {
+
+if (metric == "cms") {
+  sce <- as.SingleCellExperiment(panc8_sub)
+} else if (metric == "pvca") {
+  library(Biobase)
+
+  var_metadata <- data.frame(
+    labelDescription = colnames(panc8_sub@meta.data),
+    row.names = colnames(panc8_sub@meta.data)
+  )
+  pheno_data <- new(
+    "AnnotatedDataFrame",
+    data = panc8_sub@meta.data,
+    varMetadata = var_metadata
+  )
+  eset <- Biobase::ExpressionSet(
+    assayData = as.matrix(GetAssayData(panc8_sub)),
+    phenoData = pheno_data 
+  )
+} else {
+  X_mat <- Matrix::t(GetAssayData(panc8_sub))
+  metadata <- panc8_sub@meta.data
+}
+rm(panc8_sub)
+
+k <- n / 10 
+message(sprintf("Benchmarking: %s (n = %d)", metric, n))
+# Benchmarking
+if (metric == "rvp") {
+  source("R/rvp.R")
+
+  start <- proc.time()
+  obj <- rvp(X_mat, metadata$tech, metadata$celltype)
+  duration <- proc.time() - start 
+} else if (metric == "gpca") {
+  source("R/gpca.R")
+
+  start <- proc.time()
+  obj <- gPCA(X_mat, metadata$tech, nperm = 0) # modified to fix error when nperm = 0
+  duration <- proc.time() - start 
+} else if (metric == "pvca") {
   library(pvca)
 
-  X_mat <- as.matrix(readRDS(file))
-  rownames(metadata) <- colnames(X_mat)
+  start <- proc.time()
+  obj <- pvcaBatchAssess(eset, c("tech", "celltype"), 0.6)
+  duration <- proc.time() - start 
+} else if (metric == "cms") {
+  library(CellMixS)
 
-  meta_metadata <- data.frame(labelDescription = colnames(metadata))
-  pheno_data <- new("AnnotatedDataFrame", data = metadata, varMetadata = meta_metadata)
-  eset <- Biobase::ExpressionSet(assayData = X_mat, phenoData = pheno_data)
-  rm(X_mat)
- 
-  start <- Sys.time()
-  pvca_obj <- pvcaBatchAssess(eset, c('batch', 'class'), 0.6)
-  end <- Sys.time()
-  delta <- difftime(end, start, units = 'secs')
-} else if (metric == 'kBET') {
+  start <- proc.time()
+  sce <- cms(sce, k = k, group = "tech")
+  duration <- proc.time() - start 
+} else if (metric == "kbet") {
   library(kBET)
-  
-  X <- t(readRDS(file))
 
-  start <- Sys.time()
-  kbet <- kBET(X, batch, testSize = n, n_repeat = 1)
-  end <- Sys.time()
-  delta <- difftime(end, start, units = 'secs')
-
-  file <- sprintf('%s%s-%d.rds', outdir, metric, n)
-  saveRDS(kbet, file)
-} else if (metric == 'LISI') {
+  start <- proc.time()
+  obj <- kBET(X_mat, metadata$tech, testSize = n, n_repeat = 1)
+  duration <- proc.time() - start 
+} else if (metric == "lisi") {
   library(lisi)
 
-  X <- t(readRDS(file))
-
-  start <- Sys.time()
-  lisi <- compute_lisi(X, metadata, c('batch'))
-  end <- Sys.time()
-  delta <- difftime(end, start, units = 'secs')
-
-  file <- sprintf('%s%s-%d.rds', outdir, metric, n)
-  saveRDS(lisi, file)
+  start <- proc.time()
+  obj <- compute_lisi(X_mat, metadata, c("tech"))
+  duration <- proc.time() - start 
 }
+cat(sprintf("%s %d ", metric, n))
+cat(duration, fill = TRUE)
 
-cat(sprintf('%s,%d,%f,', metric, n, delta))
+# Save results
+file <- sprintf("%s%s-%d.rds", outdir, metric, n)
+message(sprintf("Saving results to: %s", file))
+message("==========\n")
+if (metric == "cms") {
+  saveRDS(sce@colData, file)
+} else {
+  saveRDS(obj, file)
+}
 
 # check size of variable
 # print(pryr::object_size(X_mat, eset))

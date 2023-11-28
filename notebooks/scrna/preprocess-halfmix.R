@@ -1,4 +1,3 @@
-```{r}
 library(Seurat)
 library(magrittr)
 
@@ -34,9 +33,8 @@ clusters <- read.csv(paste0(
   "data/jurkat_293t/raw/jurkat_293t/analysis_csv/",
   "kmeans/2_clusters/clusters.csv"
 ))
-```
+
 # Edit metadata
-```{r}
 jurkat$celltype <- "jurkat"
 jurkat$orig.ident <- "jurkat"
 jurkat$batch <- jurkat$orig.ident
@@ -50,13 +48,11 @@ both$orig.ident <- "zheng"
 both$batch <- both$orig.ident
 # cluster 1 consists of 293t cells
 both$celltype <- ifelse(clusters$Cluster == 1, "293t", "jurkat")
-```
+
 # Merge datasets
-```{r}
 # roughly 60 colnames are duplicated
 halfmix <- merge(both, c(hek, jurkat), project = "Jurkat-HEK293T")
 Idents(halfmix) <- "orig.ident"
-```
-```{r}
+
+
 saveRDS(halfmix, "data/jurkat_293t/processed/halfmix.rds")
-```

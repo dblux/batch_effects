@@ -1,4 +1,3 @@
-```{r}
 library(Seurat)
 library(magrittr)
 library(ggplot2)
@@ -14,11 +13,11 @@ for (f in src_files) {
   source(f)
   cat(f, fill = TRUE)
 }
-```
-```{r}
+
+
 halfmix <- readRDS("data/jurkat_293t/processed/halfmix.rds")
-```
-```{r}
+
+
 ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 mapping <- getBM(
   attributes = c("ensembl_gene_id", "hgnc_symbol"),
@@ -36,10 +35,10 @@ halfmix$percent.mito <-
 halfmix$percent.ribo <-
   colSums(GetAssayData(halfmix, slot = "counts")[ribo_genes, ]) /
   halfmix$nCount_RNA
-```
+
 # QC
 - Only ribo genes present, no mito genes
-```{r}
+
 # FeatureScatter(
 #   halfmix_sub,
 #   feature1 = "percent.mito", feature2 = "percent.ribo",
@@ -58,13 +57,13 @@ halfmix_sub <- subset(
     percent.ribo > 0.2
 )
 table(halfmix_sub$celltype, halfmix_sub$batch)
-```
+
 # Normalise data
-```{r}
+
 halfmix_sub <- NormalizeData(halfmix_sub)
-```
+
 # Feature selection: Remove ribo and sparse genes
-```{r}
+
 sparse_genes <- remove_sparse(
   GetAssayData(halfmix_sub, "counts"),
   0.95, halfmix_sub$celltype,
@@ -73,9 +72,8 @@ sparse_genes <- remove_sparse(
 rm_genes <- unique(c(mito_genes, ribo_genes, sparse_genes))
 halfmix_sel <- halfmix_sub[!(rownames(halfmix_sub) %in% rm_genes), ]
 dim(halfmix_sel)
-```
+
 # Subset
-```{r}
 # with batch effects
 tabnames <- list(unique(halfmix_sel$celltype), unique(halfmix_sel$batch))
 ct_bal <- matrix(
@@ -117,8 +115,8 @@ halfmix_imbal2 <- halfmix_sel[, idx_imbal2]
 table(halfmix_bal$celltype, halfmix_bal$batch)
 table(halfmix_imbal1$celltype, halfmix_imbal1$batch)
 table(halfmix_imbal2$celltype, halfmix_imbal2$batch)
-```
-```{r}
+
+
 # without batch effects
 tabnames <- list(unique(halfmix_sel$celltype), 1:3)
 ct_bal <- matrix(
@@ -156,9 +154,9 @@ halfmix_b1_imbal <- halfmix_b1[, idx_imbal]
 halfmix_b1_imbal$batch <- batch_imbal[idx_imbal]
 table(halfmix_b1_bal$celltype, halfmix_b1_bal$batch)
 table(halfmix_b1_imbal$celltype, halfmix_b1_imbal$batch)
-```
+
 # Evaluate batch effects
-```{r}
+
 halfmix_objs <- list(
   negctrl_bal = halfmix_b1_bal,
   negctrl_imbal = halfmix_b1_imbal,
@@ -167,8 +165,8 @@ halfmix_objs <- list(
   imbal2 = halfmix_imbal2
 )
 saveRDS(halfmix_objs, "tmp/halfmix-datasets.rds")
-```
-```{r}
+
+
 file <- "tmp/halfmix-results_k0.rds"
 objs <- readRDS(file)
 for (idx in names(objs)) {
@@ -185,10 +183,9 @@ for (idx in names(objs)) {
   cat(paste("blisi:", mean(obj$lisi$batch)), fill = T)
   cat(fill = T)
 }
-```
+
 # Plot
 ## PCA
-```{r}
 halfmix_objs <- readRDS("tmp/halfmix-datasets.rds")
 for (idx in names(halfmix_objs)) {
   halfmix_sel1 <- halfmix_objs[[idx]] %>%
@@ -206,8 +203,8 @@ for (idx in names(halfmix_objs)) {
   file <- sprintf("tmp/halfmix-pca_%s.png", idx)
   ggsave(file, ax, width = 10, height = 5)
 }
-```
-```{r}
+
+
 halfmix_sub1 <- halfmix_sub %>%
   NormalizeData() %>%
   FindVariableFeatures() %>%
@@ -224,10 +221,9 @@ ax2 <- DimPlot(
 ax <- plot_grid(ax1, ax2, rel_widths = c(1, 1))
 file <- "tmp/fig/halfmix-pca_log_fvf.png"
 ggsave(file, ax, width = 10, height = 5)
-```
-```{r}
+
+
 halfmix <- RunUMAP(halfmix, dims = 1:20)
 ax <- DimPlot(halfmix, reduction = "umap")
 file <- "tmp/umap-halfmix.png"
 ggsave(file, ax, width = 5, height = 5)
-```

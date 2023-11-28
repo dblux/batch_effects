@@ -1,16 +1,14 @@
-```{r}
 library(tidyr)
 library(ggplot2)
 library(cowplot)
-theme_set(theme_bw())
-```
-```{r}
-result <- read.csv("tmp/results.csv")
-result$metric <- substring(result$method, 1, 4)
-print(result)
-```
+theme_set(theme_bw(base_size = 7))
+
+
+ratios <- read.csv("tmp/benchmark/tables.csv")
+head(ratios)
+
 # Horizontal bar chart
-```{r}
+
 datanames <- c("villani", "halfmix", "cellbench", "maqc", "yeoh", "westlake")
 datanames <- "cellbench"
 for (dataname in datanames) {
@@ -34,8 +32,8 @@ for (dataname in datanames) {
   file <- sprintf("tmp/fig/%s-snr_psr.png", dataname)
   ggsave(file, ax, width = 8, height = 2)
 }
-```
-```{r}
+
+
 left_ylab <- "CMS, kBET"
 villani <- read.csv("tmp/villani-k.csv")
 villani_k <- gather(villani, key = "condition", "value", -Metric, -Param)
@@ -72,8 +70,8 @@ ax_ratio <- ggplot(villani_ratio, aes(x = Param, y = value, col = Metric)) +
   )
 file <- "tmp/fig/villani-ratio.png"
 ggsave(file, ax_ratio, width = 6, height = 2.5)
-```
-```{r}
+
+
 halfmix <- read.csv("tmp/halfmix-k.csv")
 halfmix_k <- gather(halfmix, key = "condition", "value", -Metric, -Param)
 ordered_lvls <- colnames(halfmix)[-c(1, 2)]
@@ -110,8 +108,8 @@ ax_ratio <- ggplot(halfmix_ratio, aes(x = Param, y = value, col = Metric)) +
   )
 file <- "tmp/fig/halfmix-ratio.png"
 ggsave(file, ax_ratio, width = 6, height = 2.5)
-```
-```{r}
+
+
 cellbench <- read.csv("tmp/cellbench-k.csv")
 cellbench <- cellbench[-1, ] # remove RVP
 cellbench_k <- gather(cellbench, key = "condition", "value", -Metric, -Param)
@@ -150,4 +148,13 @@ ax_ratio <- ggplot(cellbench_ratio, aes(x = Param, y = value, col = Metric)) +
   )
 file <- "tmp/fig/cellbench-ratio.png"
 ggsave(file, ax_ratio, width = 6, height = 2.5)
-```
+
+
+file <- "tmp/scrna/villani-results_k20.rds"
+results <- readRDS(file)
+str(results)
+results$negctrl_bal$cms$cms
+results$negctrl_imbal$cms$cms
+results$bal$cms$cms
+results$bal$cms$cms
+

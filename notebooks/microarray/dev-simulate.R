@@ -1,4 +1,3 @@
-```{r}
 library(ggplot2)
 
 src_files <- list.files("R", full.names = TRUE)
@@ -7,9 +6,8 @@ for (f in src_files) {
   source(f)
   cat(f, fill = TRUE)
 }
-```
+
 # Simulate data set
-```{r}
 npercond <- c(20, 20, 20, 20)
 crosstab <- matrix(npercond, 2, 2)
 
@@ -40,9 +38,8 @@ for (delta in seq(0.2, 1.2, 0.1)) {
   hist(simdata$log_beta[, 1])
   dev.off()
 }
-```
+
 # Load simulated data
-```{r}
 dir <- '../data/simulated/small/balanced'
 files <- list.files(dir, full.names = T)
 files <- files[c(9, 1:8, 10:11)]
@@ -61,15 +58,15 @@ metadata <- data.frame(batch, class, row.names = colnames(list_data[[1]]))
 
 print(names(list_data))
 X <- list_data[[2]]
-```
-# Data simulation
-- Orthogonality between batch effects and class effects
-  - Features with both batch effects and class effects results in non-orthogonality
-  - Visualisation: Random unit vectors contained in a unit sphere
-  - By chance, class effect genes may overlap with genes with high batch effects, resulting in non-orthogonality
-  - TODO: Increase sample variation (PCA) without too much feature variability
-    - Each sample has a multiplicative factor that is normalised
-```{r}
+
+# # Data simulation
+# - Orthogonality between batch effects and class effects
+#   - Features with both batch effects and class effects results in non-orthogonality
+#   - Visualisation: Random unit vectors contained in a unit sphere
+#   - By chance, class effect genes may overlap with genes with high batch effects, resulting in non-orthogonality
+#   - TODO: Increase sample variation (PCA) without too much feature variability
+#     - Each sample has a multiplicative factor that is normalised
+
 nclass <- 5
 nbatch <- 10
 npercond <- 5
@@ -86,10 +83,9 @@ simdata <- simulate_microarray(
   kappa = 0.2,
   dropout = FALSE
 )
-```
+
 # Plot
 ## PCA
-```{r}
 ax_pca <- ggplot_pca(
   simdata$X, simdata$metadata,
   col = 'batch', pch = 'class'
@@ -97,9 +93,8 @@ ax_pca <- ggplot_pca(
 
 file <- "tmp/pca-simulated_b10c5_delta20.png"
 ggsave(file, ax_pca, width = 5, height = 5)
-```
+
 ## Feature
-```{r}
 i <- 0
 i <- i + 1
 feature <- data.frame(
@@ -118,9 +113,8 @@ ax <- ggplot(feature) +
 
 file <- "tmp/feature-simulated.png"
 ggsave(file, ax, width = 5, height = 5)
-```
+
 ## Normalised data
-```{r}
 stopifnot(sum(simdata$X[simdata$X<0]) == 0)
 X <- data.frame(2 ^ simdata$X)
 X_scaled <- log2_transform(normaliseMeanScaling(X))
@@ -148,9 +142,8 @@ ax <- ggplot(feature) +
   ylim(0, 15)
 file <- "tmp/feature-simulated_scaled.png"
 ggsave(file, ax, width = 5, height = 5)
-```
+
 ## Colsum
-```{r}
 l1 <- colSums(simdata$X)
 feature <- data.frame(
   value = l1,
@@ -166,8 +159,6 @@ ax <- ggplot(feature) +
   )
 file <- "tmp/l1-simulated.png"
 ggsave(file, ax, width = 5, height = 5)
-```
+
 ## Histogram
-```{r}
 hist(simdata$Z[1, ], breaks = 20)
-```

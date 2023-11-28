@@ -1,4 +1,3 @@
-```{r}
 library(Seurat)
 library(magrittr)
 library(ggplot2)
@@ -14,17 +13,16 @@ for (f in src_files) {
   source(f)
   cat(f, fill = TRUE)
 }
-```
+
 # cellbench
 - Counts data
 - QC metrics calculated using scPipe
-```{r}
+
 file <- "data/cellbench/cellbench-seurat.rds"
 cellbench <- readRDS(file)
-```
+
 # QC
-- Doublets identified using demuxlet
-```{r}
+# - Doublets identified using demuxlet
 ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 mapping <- getBM(
   attributes = c("ensembl_gene_id", "hgnc_symbol"),
@@ -42,8 +40,8 @@ cellbench$percent.mito <-
 cellbench$percent.ribo <-
   colSums(GetAssayData(cellbench, slot = "counts")[ribo_genes, ]) /
   cellbench$nCount_originalexp
-```
-```{r}
+
+
 # FeatureScatter(
 #   cellbench_sub,
 #   feature1 = "percent.mito", feature2 = "percent.ribo",
@@ -62,14 +60,14 @@ cellbench_sub <- subset(
     percent.ribo < 0.35
 )
 table(cellbench_sub$celltype, cellbench_sub$batch)
-```
+
 # Normalise data
-```{r}
+
 cellbench_sub <- NormalizeData(cellbench_sub)
-```
+
 # Feature selection
 - Remove mito, ribo and sparse genes
-```{r}
+
 sparse_genes <- remove_sparse(
   GetAssayData(cellbench_sub, "counts"),
   0.95, cellbench_sub$celltype,
@@ -79,9 +77,9 @@ rm_genes <- unique(c(mito_genes, ribo_genes, sparse_genes))
 cellbench_sel <- cellbench_sub[!(rownames(cellbench_sub) %in% rm_genes), ]
 # in_all <- cellbench_sel@assays$originalexp@meta.features$in_all
 # table(in_all)
-```
+
 # Subset
-```{r}
+
 # with batch effects
 tabnames <- list(
   unique(cellbench_sel$celltype),
@@ -113,8 +111,8 @@ cellbench_bal <- cellbench_sel[, idx_bal]
 cellbench_imbal <- cellbench_sel[, idx_imbal]
 table(cellbench_bal$celltype, cellbench_bal$batch)
 table(cellbench_imbal$celltype, cellbench_imbal$batch)
-```
-```{r}
+
+
 # without batch effects
 cellbench_b1 <- subset(cellbench_sel, subset = batch == "10x")
 idx_bal <- idx_imbal <- numeric()
@@ -142,9 +140,9 @@ cellbench_b1_imbal <- cellbench_b1[, idx_imbal]
 cellbench_b1_imbal$batch <- batch_imbal[idx_imbal]
 table(cellbench_b1_bal$celltype, cellbench_b1_bal$batch)
 table(cellbench_b1_imbal$celltype, cellbench_b1_imbal$batch)
-```
+
 # Evaluate batch effects
-```{r}
+
 cellbench_objs <- list(
   negctrl_bal = cellbench_b1_bal,
   negctrl_imbal = cellbench_b1_imbal,
@@ -152,8 +150,8 @@ cellbench_objs <- list(
   imbal = cellbench_imbal
 )
 saveRDS(cellbench_objs, "tmp/cellbench-datasets.rds")
-```
-```{r}
+
+
 file <- "tmp/cellbench-k60.rds"
 objs <- readRDS(file)
 for (idx in names(objs)) {
@@ -170,10 +168,10 @@ for (idx in names(objs)) {
   cat(paste("blisi:", mean(obj$lisi$batch)), fill = T)
   cat(fill = T)
 }
-```
+
 # Plot
 - Difference between log and non-log PCA plots
-```{r}
+
 for (idx in names(cellbench_objs)) {
   cellbench_sel1 <- cellbench_objs[[idx]] %>%
     ScaleData(do.scale = FALSE) %>%
@@ -195,8 +193,8 @@ for (idx in names(cellbench_objs)) {
 # abline(a = 0, b = 1)
 # plot(1 - percent.ribo, cellbench$non_ribo_percent, xlim = c(0, 1), ylim = c(0, 1))
 # abline(a = 0, b = 1)
-```
-```{r}
+
+
 cellbench_sub1 <- cellbench_sub %>%
   NormalizeData() %>%
   FindVariableFeatures() %>%
@@ -213,4 +211,3 @@ ax2 <- DimPlot(
 ax <- plot_grid(ax1, ax2, rel_widths = c(1, 1))
 file <- "tmp/fig/cellbench-pca_log_fvf.png"
 ggsave(file, ax, width = 10, height = 5)
-```

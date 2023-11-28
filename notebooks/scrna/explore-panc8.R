@@ -1,5 +1,3 @@
-# scRNA-seq: panc8
-```{r}
 library(tidyr)
 library(magrittr)
 library(Matrix)
@@ -11,81 +9,50 @@ theme_set(theme_bw())
 library(Seurat)
 library(SeuratData)
 
-library(kBET)
-library(lisi)
-```
-```{r}
-source("batch_effects/R/rvp.R")
-```
-```{r}
+src_files <- list.files("R", full.names = TRUE)
+cat("Sourcing files:", fill = TRUE)
+for (f in src_files) {
+  cat(f, fill = TRUE)
+  source(f)
+}
+
+
 panc8 <- LoadData("panc8")
-str(panc8)
-rownames(panc8)[grep("^MT-", rownames(panc8))]
-```
 
-```{r}
-# Seurat v4
-# print(panc8)
-# print(str(panc8))
-print(colnames(panc8@meta.data))
-counts <- GetAssayData(panc8, "counts") # Seurat v4
-```
+# Quality control - Cells
+mito_genes <- rownames(panc8)[grep("^MT-", rownames(panc8))]
+ribo_genes <- rownames(panc8)[grep("^RP[SL]", rownames(panc8))]
+panc8$percent.mito <-
+  colSums(GetAssayData(panc8, slot = "counts")[mito_genes, ]) /
+  panc8$nCount_RNA
+panc8$percent.ribo <-
+  colSums(GetAssayData(panc8, slot = "counts")[ribo_genes, ]) /
+  panc8$nCount_RNA
 
-```{r}
+VlnPlot(panc8, features = c("nFeature_RNA", "nCount_RNA"))
+VlnPlot(panc8, features = c("percent.mito", "percent.ribo"))
+FeatureScatter(panc8_sub, feature1 = "nFeature_RNA", feature2 = "nCount_RNA")
+FeatureScatter(panc8, feature1 = "percent.mito", feature2 = "percent.ribo")
+
+# panc8_sub <- subset(panc8, subset = nCount_RNA < 2.5e6 & percent.mito < 0.2)
 panc8 <- NormalizeData(panc8)
-panc8 <- FindVariableFeatures(panc8)
 
-# Reduced dimension plots
-# panc8 <- ScaleData(panc8)
-# panc8 <- RunPCA(panc8)
-# panc8 <- RunUMAP(panc8, dims = 1:20)
-
-# print(VariableFeatures(panc8))
-# print(head(Embeddings(panc8, "pca")))
-# panc8@meta.data
-```
-```{r}
-ax1 <- DimPlot(panc8, reduction = "umap")
-ax2 <- DimPlot(panc8, reduction = "umap", group.by = "celltype")
-```
+# Filter features with many dropouts
+sparse_genes <- remove_sparse(
+  GetAssayData(panc8, "counts"),
+  0.95, panc8$celltype,
+  ret.features = TRUE
+)
+panc8_sel <- panc8[!(rownames(panc8) %in% sparse_genes), ]
+file <- "data/panc8/panc8_sel.rds"
+saveRDS(panc8_sel, file)
 
 # Subset data
 - Data sets: indrop3, smartseq2
 - Cell types: alpha, ductal
-```{r}
-panc2 <- subset(panc8,
-  dataset %in% c("indrop3", "smartseq2") &
-  celltype %in% c("alpha", "ductal")
-)
-```
-
-# Quality control - Cells
-```{r}
-VlnPlot(panc2, features = c("nFeature_RNA", "nCount_RNA"))
-FeatureScatter(panc2, feature1 = "nFeature_RNA", feature2 = "nCount_RNA")
-
-panc2 <- subset(panc2,
-  subset = nCount_RNA < 1.5e6 & nFeature_RNA < 10000
-)
-```
-
-# Quality control - Filter features
-```{r}
-counts <- LayerData(panc2, "counts")
-nfeat_genes <- rowSums(counts > 0)
-# hist(nfeat_genes[nfeat_genes < 300])
-```
-
-# Filter features with many dropouts
-```{r}
-panc2fltr <- panc2[nfeat_genes > 150, ]
-VlnPlot(panc2fltr, features = c("nFeature_RNA", "nCount_RNA"))
-```
-
 ## Expt: Degrees of imbalance
 - 2:2, 2:3, 2:4, 2:5, 2:6
 - Each batch: 480 cells
-
 metadata <- panc2fltr@meta.data[c("celltype", "dataset")]
 smartseq2_alpha <- which(metadata[["celltype"]] == "alpha" & metadata[["dataset"]] == "smartseq2")
 smartseq2_ductal <- which(metadata[["celltype"]] == "ductal" & metadata[["dataset"]] == "smartseq2")

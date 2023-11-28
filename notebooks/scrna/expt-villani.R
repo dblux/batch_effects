@@ -1,4 +1,3 @@
-```{r}
 library(Seurat)
 library(scater)
 library(magrittr)
@@ -16,44 +15,44 @@ for (f in src_files) {
   source(f)
   cat(f, fill = TRUE)
 }
-```
+
 # villani
 - TPM values (Smartseq2)
 - Two batches: **Different plates**
 - Four classes: Human dendritic cell lines
-```{r}
+
 file <- "data/villani/processed/villani-seurat.rds"
 villani <- readRDS(file)
-```
+
 # QC - Filter cells
 - No count data present, hence no nCounts, etc.
-```{r}
+
 villani$nFeature_tpm <- colSums(GetAssayData(villani) != 0)
 mito_genes <- rownames(villani)[grep("^MT-", rownames(villani))]
 print(mito_genes) # no mito genes
 ribo_genes <- rownames(villani)[grep("^RP[SL]", rownames(villani))]
 total_ribo <- colSums(GetAssayData(villani[ribo_genes, ]))
 villani$percent.ribo <- total_ribo / colSums(GetAssayData(villani))
-```
-```{r}
+
+
 FeatureScatter(
   villani_sub,
   feature1 = "nFeature_tpm", feature2 = "percent.ribo",
   group.by = "batch"
 )
-```
-```{r}
+
+
 villani_sub <- subset(
   villani, subset = percent.ribo > 0.05 &
     nFeature_tpm < 8000 &
     nFeature_tpm > 2000
 )
 table(villani_sub$batch, villani_sub$celltype)
-```
+
 # QC - Filter features
 - Filter out ribo genes
 - Filter out sparse genes
-```{r}
+
 sparse_genes <- remove_sparse(
   GetAssayData(villani_sub, "data"),
   0.95, villani_sub$celltype,
@@ -61,18 +60,18 @@ sparse_genes <- remove_sparse(
 )
 rm_genes <- union(ribo_genes, sparse_genes)
 villani_sel <- villani_sub[!(rownames(villani_sub) %in% rm_genes), ]
-```
+
 # Log transform data
-```{r}
+
 villani_sel@assays$log_tpm <- villani_sel@assays$tpm
 villani_sel <- SetAssayData(
   villani_sel, slot = "data", assay = "log_tpm",
   new.data = log1p(GetAssayData(villani_sel))
 )
 DefaultAssay(villani_sel) <- "log_tpm"
-```
+
 # Subset
-```{r}
+
 tabnames <- list(unique(villani$celltype), unique(villani$batch))
 ct_bal <- matrix(30, 4, 2, dimnames = tabnames)
 ct_imbal <- matrix(
@@ -97,8 +96,8 @@ villani_bal <- villani_sel[, idx_bal]
 villani_imbal <- villani_sel[, idx_imbal]
 table(villani_bal$celltype, villani_bal$batch)
 table(villani_imbal$celltype, villani_imbal$batch)
-```
-```{r}
+
+
 villani_b1 <- subset(villani_sel, subset = batch == 1)
 table(villani_b1$celltype, villani_b1$batch)
 
@@ -127,9 +126,9 @@ villani_b1_imbal <- villani_b1[, idx_imbal]
 villani_b1_imbal$batch <- batch_imbal[idx_imbal]
 table(villani_b1_bal$celltype, villani_b1_bal$batch)
 table(villani_b1_imbal$celltype, villani_b1_imbal$batch)
-```
+
 # Evaluate batch effects
-```{r}
+
 villani_objs <- list(
   negctrl_bal = villani_b1_bal,
   negctrl_imbal = villani_b1_imbal,
@@ -137,8 +136,8 @@ villani_objs <- list(
   imbal = villani_imbal
 )
 # saveRDS(villani_objs, "tmp/villani-datasets.rds")
-```
-```{r}
+
+
 results_rvp <- lapply(
   villani_objs, rvp, "batch", "celltype",
   nperm = 100, ret.percent = FALSE
@@ -152,8 +151,8 @@ results <- lapply(
   ret.scores = FALSE, do.rvp = FALSE
 )
 saveRDS(results, "tmp/villani-results_k80.rds")
-```
-```{r}
+
+
 objs <- readRDS("tmp/halfmix-results_k500.rds")
 for (idx in names(objs)) {
   cat(idx, fill = T)
@@ -179,9 +178,9 @@ for (idx in names(objs)) {
 #   cat(obj$percent.batch, fill = T)
 #   cat(obj$p.value, fill = T)
 # }
-```
+
 # Plot
-```{r}
+
 villani_sel1 <- villani_sel %>%
   ScaleData(do.scale = FALSE) %>%
   RunPCA()
@@ -194,8 +193,8 @@ ax2 <- DimPlot(
 ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
 file <- "tmp/pca-villani.png"
 ggsave(file, ax, width = 10, height = 5)
-```
-```{r}
+
+
 for (idx in names(villani_objs)) {
   villani_sel1 <- villani_objs[[idx]] %>%
     ScaleData(do.scale = FALSE) %>%
@@ -212,8 +211,8 @@ for (idx in names(villani_objs)) {
   file <- sprintf("tmp/villani-pca_%s.png", idx)
   ggsave(file, ax, width = 10, height = 5)
 }
-```
-```{r}
+
+
 ax1 <- DimPlot(
   villani_sel, reduction = "pca",
   group.by = "batch", shuffle = TRUE
@@ -226,7 +225,3 @@ ax <- plot_grid(ax1, ax2, rel_widths = c(0.9, 1))
 ax
 # file <- "tmp/pca-villani_sel.png"
 # ggsave(file, ax, width = 10, height = 5)
-```
-# CellMixS
-```{r}
-```
