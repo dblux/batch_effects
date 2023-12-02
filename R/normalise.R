@@ -1,6 +1,6 @@
 # Cosine normalisation / L2-norm normalisation
-normaliseCosine <- function(df1) {
-  l2norm_vec <- apply(df1, 2, l2norm) 
+normalise_cosine <- function(df1) {
+  l2norm_vec <- apply(df1, 2, lpnorm) 
   return(mapply(`/`, df1, l2norm_vec))
 }
 
@@ -10,15 +10,17 @@ normaliseCosine <- function(df1) {
 normaliseMinmax <- function(vec) {(vec-min(vec))/(max(vec)-min(vec))}
 
 
-# Trimmed mean scaling
-# Non-log values
-# Trimmed mean_scaling does not remove all tied values
-normaliseMeanScaling <- function(df, target_mean = 500, trim = 0.02) {
-  trimmed_mean <- apply(df, 2, mean, trim = trim)
-  scaling_factor <- target_mean/trimmed_mean
-  scaled_df <- as.data.frame(mapply(function(a,b) a*b, df, scaling_factor))
-  rownames(scaled_df) <- rownames(df)
-  return(scaled_df)
+#' Scale (using trimmed mean) values that have not been logged
+#'
+#' Trimmed mean scaling does not remove all tied values
+#' @param X Data frame of numbers with dim features, samples 
+#' @param target_mean Numeric indicating trimmed mean after normalisation
+#' @param trim Upper and lower percentage of numbers to be trimmed
+scale_trimmed <- function(X, target_mean = 500, trim = 0.02) {
+  trimmed_mean <- apply(X, 2, mean, trim = trim)
+  scaling_factor <- target_mean / trimmed_mean
+
+  sweep(X, 2, scaling_factor, `*`)
 }
 
 

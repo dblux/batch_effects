@@ -70,23 +70,24 @@ eval_batch <- function(
   nperm = 0, k.cms = 50, k0 = NULL, perplexity = 30,
   ret.scores = FALSE
 ) {
-  rvp_obj <- sce <- kbet <- lisi <- gpca <- pvca <- NULL
+  rvp_obj <- sce_coldata <- kbet <- lisi <- gpca <- pvca <- NULL
   scores <- rep(NA, 6)
   names(scores) <- c("rvp", "cms", "kbet", "lisi", "gpca", "pvca")
 
   if (class(obj) == "Seurat") {
     cat("Detected: Seurat object", fill = TRUE)
-    X <- GetAssayData(obj, slot = slot)
+    X <- Seurat::GetAssayData(obj, slot = slot)
     metadata <- obj@meta.data
     n <- dim(obj)[2]
   } else if (class(obj) == "SingleCellExperiment") {
     cat("Detected: SingleCellExperiment object", fill = TRUE)
-    X <- logcounts(obj)
+    X <- SingleCellExperiment::logcounts(obj)
     metadata <- obj@colData
     n <- ncol(obj)
   } else {
     cat("Detected: Dataset object", fill = TRUE)
-    X <- obj$X
+    X_raw <- obj$X
+    X <- log2_transform(scale_trimmed(2 ^ X_raw)) # log-normalise
     metadata <- obj$metadata
     n <- ncol(X)
   }
@@ -95,17 +96,24 @@ eval_batch <- function(
     if (metric == "rvp") {
       cat("Calculating RVP...", fill = TRUE)
       rvp_obj <- rvp(
-        Matrix::t(X), metadata[[batchname]], metadata[[classname]],
+        as.array(Matrix::t(X)),
+        metadata[[batchname]],
+        metadata[[classname]],
         ret.percent = FALSE
       )
       scores[metric] <- rvp_obj$percent.batch
-    } else if (metric == "cms"){
+    } else if (metric == "cms") {
       cat("Calculating CMS...", fill = TRUE)
-      sce <- SingleCellExperiment(list(logcounts = X), colData = metadata)
+      library(CellMixS)
+      sce <- SingleCellExperiment::SingleCellExperiment(
+        list(logcounts = X), colData = metadata
+      )
       sce <- cms(sce, k = k.cms, group = batchname)
+      sce_coldata <- sce@colData
       scores[metric] <- mean(sce@colData$cms)
-    } else if (metric == "kbet"){
+    } else if (metric == "kbet") {
       cat("Calculating kBET...", fill = TRUE)
+      library(kBET)
       kbet <- kBET(
         Matrix::t(X),
         metadata[[batchname]],
@@ -114,9 +122,11 @@ eval_batch <- function(
         n_repeat = 1,
         verbose = TRUE
       )
+      cat("\n")
       scores[metric] <- kbet$summary$kBET.observed[1]
-    } else if (metric == "lisi"){
+    } else if (metric == "lisi") {
       cat("Calculating LISI...", fill = TRUE)
+      library(lisi)
       lisi <- compute_lisi(
         Matrix::t(X),
         metadata,
@@ -130,6 +140,7 @@ eval_batch <- function(
       gpca <- gPCA(Matrix::t(X), metadata[[batchname]], nperm = 0)
     } else if (metric == "pvca") {
       cat("Calculating PVCA...", fill = TRUE)
+      library(pvca)
       meta_metadata <- data.frame(labelDescription = colnames(metadata))
       pheno_data <- new(
         "AnnotatedDataFrame", data = metadata, varMetadata = meta_metadata
@@ -144,7 +155,7 @@ eval_batch <- function(
   } else {
     return(list(
       rvp = rvp_obj,
-      cms = sce@colData,
+      cms = sce_coldata,
       kbet = kbet,
       lisi = lisi,
       gpca = gpca,

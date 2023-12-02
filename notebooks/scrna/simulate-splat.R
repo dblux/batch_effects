@@ -161,7 +161,7 @@ for (i in seq_len(niter)) {
   saveRDS(splat_objs, file)
 }
 
-# Plot
+# Plot: Log-normalised data
 for (batch_scale in batch_scales) {
   file <- sprintf("data/simulated/scrna/loc0/datasets-%.2f-01.rds", batch_scale)
   print(file)

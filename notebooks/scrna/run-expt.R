@@ -41,9 +41,11 @@ if (k == 0) {
 if (opt$metrics %in% c("cms", "kbet", "lisi")) {
   metrics <- opt$metrics
 } else if (opt$metrics == "all") {
-  metrics <- c("rvp", "cms", "kbet", "lisi")
+  metrics <- c("rvp", "cms", "kbet", "lisi", "gpca", "pvca")
 } else if (opt$metrics == "ckl") {
   metrics <- c("cms", "kbet", "lisi")
+} else if (opt$metrics == "rgp") {
+  metrics <- c("rvp", "gpca", "pvca")
 } else {
   stop("flag:metric is not in acceptable list of values.")
 }
@@ -53,19 +55,16 @@ cat(sprintf(
 ), fill = TRUE)
 
 
-library(Seurat)
-library(SingleCellExperiment)
-library(CellMixS)
-library(kBET)
-library(lisi)
 
-files <- c("R/misc.R", "R/rvp.R")
+# Imports
+files <- list.files("R", full.names = TRUE)
 for (file in files) {
   source(file)
   cat(sprintf("Sourced %s", file), fill = TRUE)
 }
 
 
+# Evaluate batch effects
 cat(sprintf("Reading file: %s", opt$file), fill = TRUE)
 datasets <- readRDS(opt$file)
 

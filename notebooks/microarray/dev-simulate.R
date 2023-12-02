@@ -7,6 +7,7 @@ for (f in src_files) {
   cat(f, fill = TRUE)
 }
 
+
 # Simulate data set
 npercond <- c(20, 20, 20, 20)
 crosstab <- matrix(npercond, 2, 2)
@@ -59,37 +60,72 @@ metadata <- data.frame(batch, class, row.names = colnames(list_data[[1]]))
 print(names(list_data))
 X <- list_data[[2]]
 
-# # Data simulation
-# - Orthogonality between batch effects and class effects
-#   - Features with both batch effects and class effects results in non-orthogonality
+# Dev: Data simulation
+# Orthogonality between batch effects and class effects
+#   - Features with both batch and class effects results in non-orthogonality
 #   - Visualisation: Random unit vectors contained in a unit sphere
 #   - By chance, class effect genes may overlap with genes with high batch effects, resulting in non-orthogonality
-#   - TODO: Increase sample variation (PCA) without too much feature variability
-#     - Each sample has a multiplicative factor that is normalised
 
-nclass <- 5
-nbatch <- 10
-npercond <- 5
+nclass <- 2
+nbatch <- 2
+npercond <- 20
 # n_kg <- rep(npercond, nbatch * nclass)
 crosstab <- matrix(npercond, nclass, nbatch)
 print(crosstab)
 
-delta <- 2
+delta <- 0.7
 simdata <- simulate_microarray(
   10000, crosstab,
-  delta = delta, gamma = 1,
-  phi = 0.1, zeta = 1.5,
+  delta = delta,
+  gamma = 0.5,
+  phi = 0.2,
+  c = 10, d = 6,
   epsilon = 0.5,
   kappa = 0.2,
   dropout = FALSE
 )
 
+## Class log fold-change
+class_fc <- as.vector(simdata$class.logfc)
+nonzero_cfc <- class_fc[class_fc != 0]
+head(sort(abs(nonzero_cfc), decreasing = T), 30)
+head(sort(abs(nonzero_cfc), decreasing = F), 30)
+
 # Plot
-## PCA
+## Normalised data
+ax_pca <- 2 ^ simdata$X %>%
+  scale_trimmed() %>%
+  log2_transform() %>%
+  ggplot_pca(simdata$metadata, col = 'batch', pch = 'class')
+ax_pca
+
+file <- "tmp/pca-simulated_scaled.png"
+ggsave(file, ax_pca, width = 5, height = 5)
+
+i <- 1
+feature <- data.frame(
+  value = as.vector(data.matrix(X_scaled[i, ])),
+  batch = simdata$metadata$batch,
+  class = simdata$metadata$class
+)
+
+ax <- ggplot(feature) +
+  geom_point(
+    aes(x = batch, y = value, pch = class, col = batch),
+    position = position_jitterdodge(jitter.width = .5),
+    show.legend = FALSE
+  ) +
+  ylim(0, 15)
+ax
+file <- "tmp/feature-simulated_scaled.png"
+ggsave(file, ax, width = 5, height = 5)
+
+## Un-normalised data
 ax_pca <- ggplot_pca(
   simdata$X, simdata$metadata,
   col = 'batch', pch = 'class'
 )
+ax_pca
 
 file <- "tmp/pca-simulated_b10c5_delta20.png"
 ggsave(file, ax_pca, width = 5, height = 5)
@@ -110,38 +146,11 @@ ax <- ggplot(feature) +
     show.legend = FALSE
   ) +
   ylim(0, 15)
+ax
 
 file <- "tmp/feature-simulated.png"
 ggsave(file, ax, width = 5, height = 5)
 
-## Normalised data
-stopifnot(sum(simdata$X[simdata$X<0]) == 0)
-X <- data.frame(2 ^ simdata$X)
-X_scaled <- log2_transform(normaliseMeanScaling(X))
-
-ax_pca <- ggplot_pca(
-  X_scaled, simdata$metadata,
-  col = 'batch', pch = 'class'
-)
-file <- "tmp/pca-simulated_scaled.png"
-ggsave(file, ax_pca, width = 5, height = 5)
-
-i <- 1
-feature <- data.frame(
-  value = as.vector(data.matrix(X_scaled[i, ])),
-  batch = simdata$metadata$batch,
-  class = simdata$metadata$class
-)
-
-ax <- ggplot(feature) +
-  geom_point(
-    aes(x = batch, y = value, pch = class, col = batch),
-    position = position_jitterdodge(jitter.width = .5),
-    show.legend = FALSE
-  ) +
-  ylim(0, 15)
-file <- "tmp/feature-simulated_scaled.png"
-ggsave(file, ax, width = 5, height = 5)
 
 ## Colsum
 l1 <- colSums(simdata$X)
@@ -157,6 +166,8 @@ ax <- ggplot(feature) +
     position = position_jitterdodge(jitter.width = .5),
     show.legend = FALSE
   )
+ax
+
 file <- "tmp/l1-simulated.png"
 ggsave(file, ax, width = 5, height = 5)
 

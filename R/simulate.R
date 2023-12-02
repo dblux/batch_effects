@@ -7,15 +7,15 @@
 #' @param gamma Magnitude of multiplicative batch effects. Variance parameter
 #'   of Normal distribution modelling batch effects across samples in a batch.
 #' @param phi Percentage of differentially expressed features.
-#' @param zeta Magnitude of class effects. Variance parameter of Normal
-#'   distribution modelling log fold change.
+#' @param c Shape parameter of Gamma distribution modelling log fold-change.
+#' @param d Rate parameter of Gamma distribution modelling log fold-change.
 #' @param epsilon Magnitude of feature-wise variation.
 #' @param kappa Magnitude of sample-specific variation (scaling factor).
 #' @param a Shape parameter of Gamma distribution modelling basal expression.
-#' @param b Scale parameter of Gamma distribution modelling basal expression.
+#' @param b Rate parameter of Gamma distribution modelling basal expression.
 #' @param dropout Logical indicating whether to perform dropout
-#' @param c Inverse scale parameter of the sigmoid function
-#' @param d Midpoint parameter of the sigmoid function
+#' @param r Inverse scale parameter of the sigmoid function.
+#' @param s Midpoint parameter of the sigmoid function.
 #' @param seed Numeric specifying random seed. Defaults to no seed.
 #' @return Matrix of dim (m, n).
 #'
@@ -25,17 +25,29 @@ simulate_microarray <- function(
   crosstab,
   delta = 1,
   gamma = 0.5,
-  phi = 0.1,
-  zeta = 1,
+  phi = 0.2,
+  c = 10,
+  d = 6,
   epsilon = 0.5, # limit = (, 1)
   kappa = 0.2, # limit = (, 0.3)
   a = 40,
-  b = 0.2,
+  b = 5,
   dropout = FALSE,
-  c = 2,
-  d = -6,
+  r = 2,
+  s = -6,
   seed = NA
 ) {
+  # Record parameters
+  params <- c(
+    crosstab = crosstab,
+    delta = delta, gamma = gamma,
+    phi = phi, c = c, d = d,
+    epsilon = epsilon, kappa = kappa,
+    a = a, b = b, 
+    dropout = dropout, r = r, s = s,
+    seed = seed
+  )
+
   if (!is.na(seed))
     set.seed(seed)
 
@@ -44,6 +56,7 @@ simulate_microarray <- function(
   n_batch <- ncol(crosstab)
   gs <- rep(rep(seq_len(n_class), n_batch), crosstab) # class encoding
   ks <- rep(rep(seq_len(n_batch), each = n_class), crosstab) # batch encoding
+
   # Metadata
   gs_alphabet <- LETTERS[gs]
   sid <- paste(paste0("ID", seq_len(n)), gs_alphabet, ks, sep = "_")
@@ -53,22 +66,29 @@ simulate_microarray <- function(
     row.names = sid
   )
 
-  log_psi <- rgamma(m, a, scale = b)
-  # TODO: Test what happens when n_class = 1
-  log_rho <- cbind(
-    rep(0, m), # class 1 has zero log fold change w.r.t. itself
-    matrix(rnorm(m * (n_class - 1), 0, zeta), m, n_class - 1)
-  )
+  log_psi <- rgamma(m, a, rate = b)
+  # Log fold-change factors for each class
+  # Class A has zero log fold change w.r.t. itself
+  log_rho <- matrix(0, m, n_class)
   colnames(log_rho) <- LETTERS[seq_len(n_class)]
-  n_diffexpr <- round(phi * m, 0)
-  # features not in the top phi percent according to log-fc are set to zero
-  rank_rho <- apply(log_rho, 2, function(x) rank(-abs(x)))
-  log_rho[rank_rho > n_diffexpr] <- 0
-  # Collating differentially expressed features
   diff.features <- NULL
-  if (n_class > 1)
-    diff.features <- apply(log_rho[, -1, drop = FALSE] != 0, 2, which)
+  if (n_class > 1) {
+    n_upreg <- n_downreg <- round(phi * m / 2, 0)
+    n_diffexpr <- n_upreg + n_downreg
+    for (g in seq(2, n_class)) {
+      diff.features <- sort(sample(seq_len(m), n_diffexpr))
+      upreg.features <- sort(sample(diff.features, n_upreg))
+      downreg.features <- setdiff(diff.features, upreg.features)
+      for (i in upreg.features) {
+        log_rho[i, g] <- rgamma(1, c, rate = d)
+      }
+      for (i in downreg.features) {
+        log_rho[i, g] <- -rgamma(1, c, rate = d)
+      }
+    }
+  }
 
+  # Base expression values with class effects
   Z <- matrix(0, m, n)
   colnames(Z) <- sid
   for (i in seq_len(m)) {
@@ -77,8 +97,13 @@ simulate_microarray <- function(
       Z[i, j] <- rnorm(1, log_psi[i] + log_rho[i, g], epsilon)
     }
   }
+
+  # Sample specific scaling term (in log space)
+  log_alpha <- rnorm(n, 0, kappa)
+  Z <- sweep(Z, 2, log_alpha, `+`)
+
+  # Batch effects
   log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
-  # Omega: Batch effect terms
   omega <- matrix(0, m, n)
   for (i in seq_len(m)) {
     for (j in seq_len(n)) {
@@ -86,9 +111,6 @@ simulate_microarray <- function(
       omega[i, j] <- rnorm(1, log_beta[i, k], gamma)
     }
   }
-  # Log of sample specific scaling factor
-  log_alpha <- rnorm(n, 0, kappa)
-  Z <- sweep(Z, 2, log_alpha, `+`)
 
   X <- Z + omega
   X[X < 0] <- 0 # set negative values to zero
@@ -103,15 +125,6 @@ simulate_microarray <- function(
     }
     X <- X * indicator
   }
-  params <- c(
-    delta = delta, gamma = gamma,
-    phi = phi, zeta = zeta,
-    epsilon = epsilon, kappa = kappa,
-    a = a, b = b,
-    dropout = dropout,
-    c = c, d = d,
-    seed = seed
-  )
 
   list(
     X = X, metadata = metadata,
@@ -126,6 +139,6 @@ simulate_microarray <- function(
 #' Sigmoid function
 #'
 #' @param numeric scalar/vector/matrix
-#' @param c Inverse scale parameter of the sigmoid function
-#' @param d Midpoint parameter of the sigmoid function
-sigmoid <- function(x, c = 1, d = 0) 1 / (1 + exp(-(c * (x + d))))
+#' @param r Inverse scale parameter of the sigmoid function
+#' @param s Midpoint parameter of the sigmoid function
+sigmoid <- function(x, r = 1, s = 0) 1 / (1 + exp(-(r * (x + s))))

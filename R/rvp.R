@@ -13,6 +13,9 @@
 rvp <- function(x, ...) UseMethod("rvp", x)
 
 
+# TODO: Handle class: Matrix (sparse)
+
+
 #' Recursive variance partitioning (RVP)
 #'
 #' Calculates percentage of variance in data due to batch effects. Default S3
