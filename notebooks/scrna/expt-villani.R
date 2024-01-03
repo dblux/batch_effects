@@ -49,9 +49,9 @@ villani_sub <- subset(
 )
 table(villani_sub$batch, villani_sub$celltype)
 
-# QC - Filter features
-- Filter out ribo genes
-- Filter out sparse genes
+# # QC - Filter features
+# - Filter out ribo genes
+# - Filter out sparse genes
 
 sparse_genes <- remove_sparse(
   GetAssayData(villani_sub, "data"),
@@ -62,7 +62,6 @@ rm_genes <- union(ribo_genes, sparse_genes)
 villani_sel <- villani_sub[!(rownames(villani_sub) %in% rm_genes), ]
 
 # Log transform data
-
 villani_sel@assays$log_tpm <- villani_sel@assays$tpm
 villani_sel <- SetAssayData(
   villani_sel, slot = "data", assay = "log_tpm",
@@ -71,7 +70,6 @@ villani_sel <- SetAssayData(
 DefaultAssay(villani_sel) <- "log_tpm"
 
 # Subset
-
 tabnames <- list(unique(villani$celltype), unique(villani$batch))
 ct_bal <- matrix(30, 4, 2, dimnames = tabnames)
 ct_imbal <- matrix(
@@ -96,7 +94,6 @@ villani_bal <- villani_sel[, idx_bal]
 villani_imbal <- villani_sel[, idx_imbal]
 table(villani_bal$celltype, villani_bal$batch)
 table(villani_imbal$celltype, villani_imbal$batch)
-
 
 villani_b1 <- subset(villani_sel, subset = batch == 1)
 table(villani_b1$celltype, villani_b1$batch)
@@ -127,8 +124,7 @@ villani_b1_imbal$batch <- batch_imbal[idx_imbal]
 table(villani_b1_bal$celltype, villani_b1_bal$batch)
 table(villani_b1_imbal$celltype, villani_b1_imbal$batch)
 
-# Evaluate batch effects
-
+# Save data sets 
 villani_objs <- list(
   negctrl_bal = villani_b1_bal,
   negctrl_imbal = villani_b1_imbal,
@@ -137,22 +133,7 @@ villani_objs <- list(
 )
 # saveRDS(villani_objs, "tmp/villani-datasets.rds")
 
-
-results_rvp <- lapply(
-  villani_objs, rvp, "batch", "celltype",
-  nperm = 100, ret.percent = FALSE
-)
-saveRDS(results_rvp, "tmp/villani-results_rvp.rds")
-k <- 80
-results <- lapply(
-  villani_objs, eval_batch,
-  "batch", "celltype",
-  k0 = k, perplexity = k,
-  ret.scores = FALSE, do.rvp = FALSE
-)
-saveRDS(results, "tmp/villani-results_k80.rds")
-
-
+# Analyse saved results
 objs <- readRDS("tmp/halfmix-results_k500.rds")
 for (idx in names(objs)) {
   cat(idx, fill = T)
@@ -163,24 +144,9 @@ for (idx in names(objs)) {
   cat(paste("blisi:", mean(obj$lisi$batch)), fill = T)
   cat(fill = T)
 }
-# CMS
-for (idx in names(objs)) {
-  cat(idx, fill = T)
-  obj <- objs[[idx]]
-  # print(summary(obj$sce$cms))
-  # print(summary(obj$sce$cms_smooth))
-  cat(mean(obj$sce$cms), fill = T)
-}
-# RVP
-# for (idx in names(objs)) {
-#   cat(idx, fill = T)
-#   obj <- objs[[idx]]
-#   cat(obj$percent.batch, fill = T)
-#   cat(obj$p.value, fill = T)
-# }
+
 
 # Plot
-
 villani_sel1 <- villani_sel %>%
   ScaleData(do.scale = FALSE) %>%
   RunPCA()

@@ -2,35 +2,49 @@
 #'
 #' @import ggplot2
 #' @importFrom tibble rownames_to_column
-#' @param X dataframe with features as rows and samples as columns
-#' @param metadata dataframe of metadata with samples as rows
-#' @param newdata dataframe of data to be predicted by prcomp object
-#' @param x character indicating PC to plot on x-axis
-#' @param y character indicating PC to plot on y-axis
-#' @param ... optional arguments are passed to aes_string in ggplot. Optional
-#' parameters have to match column names in metadata
+#' @importFrom Matrix t
+#' @param X Data frame with dim (n_features, n_samples) or data frame of PC
+#'   values with dim (n_samples, n_features)
+#' @param metadata Data frame of metadata with dim (n_samples, n_features)
+#' @param var_pc Numeric vector of variance explained by each PC 
+#' @param newdata Dataframe of data to be predicted by prcomp object
+#' @param x Character indicating PC to plot on x-axis
+#' @param y Character indicating PC to plot on y-axis
+#' @param ... Optional arguments are passed to aes_string in ggplot. Optional
+#'   parameters have to match column names in metadata
 ggplot_pca <- function(
-  X, metadata,
+  X,
+  metadata,
   cex = 2,
-  label = FALSE,
+  alpha = 1,
+  show.legend = TRUE,
+  plot.axis = TRUE,
+  plot.rowname = FALSE,
+  do.pca = TRUE,
+  var_pc = NULL,
   newdata = NULL,
   x = "PC1", y = "PC2",
-  show.legend = TRUE,
   ...
 ) {
   x_idx <- as.numeric(substring(x, 3))
   y_idx <- as.numeric(substring(y, 3))
   
   # PCA
-  pca_obj <- prcomp(t(X))
-  Z <- data.frame(pca_obj$x)
-  eigenvalues <- (pca_obj$sdev)^2
-  var_pc <- eigenvalues/sum(eigenvalues)
-  pc_labels <- sprintf("%s (%.2f%%)", colnames(Z), var_pc * 100)
-
+  if (do.pca) {
+    pca_obj <- prcomp(Matrix::t(X))
+    Z <- data.frame(pca_obj$x)
+    eigenvalues <- (pca_obj$sdev) ^ 2
+    var_pc <- eigenvalues / sum(eigenvalues) # overwrites var_pc
+    pc_names <- paste0("PC", seq_len(ncol(Z)))
+    pc_labels <- sprintf("%s (%.2f%%)", pc_names, var_pc * 100)
+  } else {
+    Z <- data.frame(X)
+    pc_names <- paste0("PC", seq_len(ncol(Z)))
+    pc_labels <- sprintf("%s (%.2f%%)", pc_names, var_pc * 100)
+  }
   # Projects newdata into PCA space
   if (!is.null(newdata)) {
-    Z_new <- predict(pca_obj, newdata = t(newdata))
+    Z_new <- predict(pca_obj, newdata = Matrix::t(newdata))
     # Remove duplicate rows
     Z_new <- Z_new[!(rownames(Z_new) %in% rownames(Z)), ]
     Z <- rbind(Z, Z_new)
@@ -46,19 +60,27 @@ ggplot_pca <- function(
     Z_metadata,
     aes_string(x = x, y = y, label = "rowname", ...),
   ) +
-    labs(x = pc_labels[x_idx], y = pc_labels[y_idx]) +
-    geom_vline(xintercept = 0, color = "black") +
-    geom_hline(yintercept = 0, color = "black")
-  
-  # Plot text labels instead of points
-  if (label)
-    return(
-      ax +
-        geom_point(color = "black", cex = cex) +
-        geom_text(cex = cex)
-    )
+    labs(x = pc_labels[x_idx], y = pc_labels[y_idx])
 
-  ax + geom_point(cex = cex, show.legend = show.legend)
+  if (plot.axis) {
+    ax <- ax +
+      geom_vline(xintercept = 0, color = "black") +
+      geom_hline(yintercept = 0, color = "black")
+  }
+  # Plot text labels instead of points
+  if (plot.rowname){
+    ax <- ax +
+      geom_point(
+        color = "black", cex = cex,
+        alpha = alpha, show.legend = show.legend
+      ) +
+      geom_text(cex = cex)
+  } else {
+    ax <- ax +
+      geom_point(cex = cex, alpha = alpha, show.legend = show.legend)
+  }
+
+  ax
 }
 
 
