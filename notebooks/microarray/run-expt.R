@@ -28,7 +28,6 @@ option_list <- list(
 )
 opt <- parse_args(OptionParser(option_list = option_list))
 
-# Parameters for eval_batch function
 nperm <- as.numeric(opt$nperm)
 k <- as.numeric(opt$k)
 if (k == 0) {
@@ -38,6 +37,7 @@ if (k == 0) {
 } else {
   k.cms <- k0 <- perplexity <- k
 }
+# workout which metric to run
 if (opt$metrics %in% c("cms", "kbet", "lisi")) {
   metrics <- opt$metrics
 } else if (opt$metrics == "all") {
@@ -55,6 +55,7 @@ cat(sprintf(
 ), fill = TRUE)
 
 
+
 # Imports
 files <- list.files("R", full.names = TRUE)
 for (file in files) {
@@ -65,10 +66,10 @@ for (file in files) {
 
 # Evaluate batch effects
 cat(sprintf("Reading file: %s", opt$file), fill = TRUE)
-simdata <- readRDS(opt$file)
+datasets <- readRDS(opt$file)
 
-results <- eval_batch(
-  simdata, "batch", "class",
+results <- lapply(
+  datasets, eval_batch, "machine", "class",
   metrics = metrics,
   nperm = nperm, k.cms = k.cms, k0 = k0, perplexity = perplexity
 )

@@ -145,8 +145,11 @@ eval_batch <- function(
       pheno_data <- new(
         "AnnotatedDataFrame", data = metadata, varMetadata = meta_metadata
       )
-      eset <- Biobase::ExpressionSet(assayData = X, phenoData = pheno_data)
-      pvca <- pvcaBatchAssess(eset, c('batch', 'class'), 0.6)
+      eset <- Biobase::ExpressionSet(
+        assayData = data.matrix(X),
+        phenoData = pheno_data
+      )
+      pvca <- pvcaBatchAssess(eset, c(batchname, classname), 0.6)
     }
   }
 

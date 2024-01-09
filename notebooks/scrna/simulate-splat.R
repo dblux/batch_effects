@@ -178,33 +178,36 @@ for (batch_scale in batch_scales) {
     show.legend <- TRUE
     width <- 1.9
   }
-  file <- sprintf("data/simulated/scrna/loc0/datasets-%.2f-01.rds", batch_scale)
+  file <- sprintf(
+    "data/simulated/scrna/loc0/datasets-%.2f-01.rds", batch_scale
+  )
   dataset <- readRDS(file)
-  # Balanced
-  sce <- runPCA(dataset$bal, scale = FALSE)
-  sce_pca <- reducedDim(sce, "PCA")
-  var_pc <- attr(sce_pca, "percentVar") / 100
-  scale_title <- sprintf("Batch scale = %.02f", batch_scale)
-  colData(sce)$Batch <- factor(colData(sce)$Batch)
-  levels(colData(sce)$Batch) <- c(1, 2)
-  levels(colData(sce)$Group) <- c(1, 2)
-  ax <- ggplot_pca(
-    sce_pca, colData(sce), col = "Batch", pch = "Group",
-    do.pca = FALSE, var_pc = var_pc,
-    show.legend = show.legend, plot.axis = FALSE,
-    cex = 0.8, alpha = 0.7
-  ) +
-    labs(title = scale_title) +
-    theme(
-      title = element_text(size = 6),
-      axis.title.x = element_text(size = 5),
-      axis.title.y = element_text(size = 5),
-      legend.key.size = unit(4, "mm")
-    ) +
-    scale_color_manual(values = batch_cols)
-  file <- sprintf("tmp/fig/splat/pca-splat_bal_%.2f-01.jpg", batch_scale)
-  ggsave(file, ax, width = width, height = 1.5)
-  print(file)
+  # # Balanced
+  # sce <- runPCA(dataset$bal, scale = FALSE)
+  # sce_pca <- reducedDim(sce, "PCA")
+  # var_pc <- attr(sce_pca, "percentVar") / 100
+  # scale_title <- sprintf("Batch scale = %.02f", batch_scale)
+  # colData(sce)$Batch <- factor(colData(sce)$Batch)
+  # levels(colData(sce)$Batch) <- c(1, 2)
+  # levels(colData(sce)$Group) <- c(1, 2)
+  # ax <- ggplot_pca(
+  #   sce_pca, colData(sce), col = "Batch", pch = "Group",
+  #   do.pca = FALSE, var_pc = var_pc,
+  #   show.legend = show.legend, plot.axis = FALSE,
+  #   cex = 0.8, alpha = 0.7
+  # ) +
+  #   labs(title = scale_title) +
+  #   theme(
+  #     title = element_text(size = 6),
+  #     plot.title = element_text(hjust = 0.5),
+  #     axis.title.x = element_text(size = 5),
+  #     axis.title.y = element_text(size = 5),
+  #     legend.key.size = unit(4, "mm")
+  #   ) +
+  #   scale_color_manual(values = batch_cols)
+  # file <- sprintf("tmp/fig/splat/pca-splat_bal_%.2f-01.jpg", batch_scale)
+  # ggsave(file, ax, width = width, height = 1.5)
+  # print(file)
   # Imbalanced
   sce <- runPCA(dataset$imbal, scale = FALSE)
   sce_pca <- reducedDim(sce, "PCA")
@@ -222,6 +225,7 @@ for (batch_scale in batch_scales) {
     labs(title = scale_title) +
     theme(
       title = element_text(size = 6),
+      plot.title = element_text(hjust = 0.5),
       axis.title.x = element_text(size = 5),
       axis.title.y = element_text(size = 5),
       legend.key.size = unit(4, "mm")

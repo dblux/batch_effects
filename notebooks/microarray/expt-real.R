@@ -1,16 +1,11 @@
 library(dplyr)
 library(tibble)
 library(tidyr)
-
-library(Biobase)
-library(pvca)
-
 library(ggplot2)
 library(cowplot)
+library(Biobase)
+library(pvca)
 theme_set(theme_bw())
-
-options(repr.plot.width = 6, repr.plot.height = 4)
-
 # source files
 src_files <- list.files('../../relapse_prediction/R', full.names = TRUE)
 for (f in src_files) {
@@ -255,56 +250,31 @@ print(factors)
 rounded_prop <- sapply(var_prop, round, digits = 4)
 do.call(paste, as.list(c(rounded_prop, sep = '; ')))
 
-# table(metadata_sid[colnames(yeoh_imbal), c('batch_info', 'class_info')])
 
-# # regenerate fake batch data
-# file1 <- "../data/westlake-A549_K562/processed/balanced.csv"
-# data <- read.table(file1, sep = ",", header = T, row.names = 1)
-
-# file2 <- "../data/westlake-A549_K562/processed/metadata/fake_batch-balanced.csv"
-# metadata <- read.table(file2, sep = ",", header = T, row.names = 1)
-
-# fake_batch <- data[, rownames(metadata)]
-# file3 <- "../data/westlake-A549_K562/processed/fake_batch.csv"
-# write.csv(fake_batch, file3, quote = F)
-
-file1 <- "../data/westlake-A549_K562/processed/severe.csv"
-file2 <- "../data/westlake-A549_K562/processed/metadata/severe.csv"
-
-data <- read.table(file1, sep = ",", header = T, row.names = 1)
-metadata <- read.table(file2, sep = ",", header = T, row.names = 1)
+# westlake
+dataname <- "westlake"
+# with
+file1 <- "data/westlake/processed/balanced.csv"
+file2 <- "data/westlake/processed/metadata/balanced.csv"
+westlake <- read.csv(file1, row.names = 1)
+metadata <- read.csv(file2, row.names = 1)
 metadata$machine <- as.factor(metadata$machine)
-stopifnot(identical(colnames(data), rownames(metadata)))
+stopifnot(identical(colnames(westlake), rownames(metadata)))
+# without
+file1 <- "data/westlake/processed/fake_batch.csv"
+file2 <- "data/westlake/processed/metadata/fake_batch-balanced1.csv"
+westlake_without <- read.csv(file1, row.names = 1)
+metadata_without <- read.csv(file2, row.names = 1)
+metadata_without$machine <- as.factor(metadata_without$machine)
+stopifnot(identical(colnames(westlake_without), rownames(metadata_without)))
 
-rvp <- RVP(t(data), metadata$machine, metadata$class)
-
-ax <- ggplot_pca(data, metadata, col = 'machine', pch = 'class')
-
-file <- '~/Dropbox/tmp/westlake-severe.pdf'
-ggsave(file, ax, width = 5, height = 3)
-
-sample <- data.frame(
-  value = as.numeric(data[1,]),
-  batch = metadata$machine,
-  class = metadata$class
+datasets <- list(
+  with = list(X = westlake, metadata = metadata),
+  without = list(X = westlake_without, metadata = metadata_without)
 )
+file <- "data/westlake/processed/westlake-datasets.rds"
+saveRDS(datasets, file)
 
-ax <- ggplot(sample) +
-  geom_point(
-    aes(x = class, y = value, col = batch),
-    position = position_jitterdodge()
-  )
-
-file <- '~/Dropbox/tmp/rvp-sample.pdf'
-ggsave(file, ax, width = 5, height = 3)
-
-metadata_maqc_bal <- metadata_maqc[colnames(maqc_bal), ]
-
-head(metadata_maqc_bal)
-
-rvp <- RVP(t(maqc_bal), metadata_maqc_bal$batch_info, metadata_maqc_bal$class_info)
-
-maqc_prcomp <- prcomp(t(maqc_bal))
-maqc_pca <- maqc_prcomp$x
-
-rvp <- RVP(maqc_pca, metadata_maqc_bal$batch_info, metadata_maqc_bal$class_info)
+file <- "tmp/microarray/westlake/results.rds"
+results <- readRDS(file)
+str(results)

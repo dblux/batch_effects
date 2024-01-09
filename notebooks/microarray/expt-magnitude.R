@@ -2,7 +2,6 @@ library(ggplot2)
 library(RColorBrewer)
 library(tidyr)
 theme_set(theme_bw(base_size = 7))
-
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -251,6 +250,7 @@ for (i in seq_len(length(batch_sizes))) {
     labs(title = bvar_title) +
     theme(
       title = element_text(size = 6),
+      plot.title = element_text(hjust = 0.5),
       axis.title.x = element_text(size = 5),
       axis.title.y = element_text(size = 5),
       legend.key.size = unit(4, "mm")
@@ -263,6 +263,7 @@ for (i in seq_len(length(batch_sizes))) {
   print(file)
 }
 
+# Imbalanced
 file <- "tmp/microarray/magnitude/short_imbal.csv"
 short_imbal <- read.csv(file)
 show.legend <- FALSE
