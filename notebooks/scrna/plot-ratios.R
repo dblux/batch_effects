@@ -57,6 +57,7 @@ for (params in datasets) {
         show.legend = FALSE
       ) +
       theme(
+        title = element_text(size = 6),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         axis.title.x = element_blank(),
@@ -67,7 +68,7 @@ for (params in datasets) {
       scale_y_discrete(limits = rev)
   file <- sprintf("tmp/fig/real/%s-ratios.jpg", dataset)
   print(file)
-  ggsave(file, ax, width = 4, height = 1)
+  ggsave(file, ax, width = 4, height = 0.9)
 }
 
 # k-sensitivity

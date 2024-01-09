@@ -140,17 +140,15 @@ rvp.SingleCellExperiment <- function(
 #' @param ret.percent Logical indicating whether to only return percentage of
 #'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-#' @import Seurat, Matrix
 #' @export
 rvp.Seurat <- function(
   obj, batchname, classname,
-  slot = "data", nperm = 0, ret.percent = TRUE
+  layer = "data", nperm = 0, ret.percent = TRUE
 ) {
-  X <- if (length(find("LayerData")) == 0) {
-    Matrix::t(Seurat::GetAssayData(obj, slot))
-  } else {
-    Matrix::t(Seurat::LayerData(obj, slot)) # Seurat v5
-  }
+  # Enhances: Matrix, Seurat/SeuratObject
+  # GetAssayData is for Seurat assay v3/v4
+  # GetAssayData is either from the Seurat or SeuratObject package
+  X <- Matrix::t(GetAssayData(obj, layer = layer))
   batch <- obj@meta.data[[batchname]]
   # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
@@ -181,10 +179,9 @@ rvp.Seurat <- function(
     rvp_obj$null.distribution <- null_distr
     rvp_obj$p.value <- pvalue
   }
-  if (!is.numeric(nperm) && ret.percent) {
+  if (nperm == 0 && ret.percent) {
     return(rvp_obj$percent.batch)
   } else {
-    # If nperm is numeric obj will be returned regardless of ret.percent
     return(rvp_obj)
   }
 }
@@ -194,46 +191,57 @@ rvp.Seurat <- function(
 #'
 #' @param sum_sq Dataframe of sum of squares with dim (n_features, 2).
 #' @param m Number of features to retain from sum_sq (from the top).
-plot.rvp <- function(sum_sq, m = NULL, cex = 1) {
+plot_rvp <- function(rvp_obj, m = NULL, cex = 1) {
   xlab <- "Feature index"
+  sum_sq <- rvp_obj$sum.squares
+  sum_sq <- sum_sq[rev(order(sum_sq$ss_total)), ]
+  RVP <- rvp_obj$percent.batch
+
   if (is.numeric(m))
     sum_sq <- sum_sq[seq_len(m), , drop = FALSE]
 
-  ax1 <- ggplot(sum_sq) +
+  ax_ssb <- ggplot(sum_sq) +
     geom_line(
       aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch)),
-      color = 'blue'
+      color = "blue"
     ) +
-    geom_line(
-      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total))
-    ) +
-    labs(x = xlab, y = "Cumulative sum of squares")
-  
-  ax2 <- ggplot(sum_sq) +
-    geom_line(
-      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total))
-    ) +
-    labs(x = xlab, y = "Cumulative sum of squares (total)")
+    labs(x = xlab, y = "Cumulative sum of squares batch")
 
-  ax3 <- ggplot(sum_sq) +
+  ax_sst <- ggplot(sum_sq) +
     geom_line(
-      aes(
-        x = seq_len(nrow(sum_sq)),
-        y = cumsum(ss_batch) / cumsum(ss_total)
-      )
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total)),
+      color = "chartreuse3"
     ) +
-    labs(x = xlab, y = "RVP")
+    labs(x = xlab, y = "Cumulative sum of squares total")
 
-  # ax4 <- ggplot(sum_sq) +
-  #   geom_point(
-  #     aes(x = seq_len(nrow(sum_sq)), y = ss_batch),
-  #     color = 'blue', cex = cex
-  #   ) + 
-  #   geom_point(
-  #     aes(x = seq_len(nrow(sum_sq)), y = ss_total),
-  #     cex = cex
-  #   ) +
-  #   labs(x = xlab, y = "Sum of squares")
+  ax_rvp <- ggplot(sum_sq) +
+    geom_line(
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch) / cumsum(ss_total)),
+      col = "brown1"
+    ) +
+    geom_hline(yintercept = RVP, col = "darkgray", linetype = "dashed") +
+    labs(x = xlab, y = "Cumulative RVP")
 
-  cowplot::plot_grid(ax1, ax3, nrow = 1)
+  full_rvp <- ax_rvp +
+    ylim(c(0, 1)) +
+    theme(
+      axis.title.x = element_blank(), 
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA)
+    )
+
+  ax <- ggdraw() +
+    draw_plot(ax_rvp) +
+    draw_plot(
+      full_rvp,
+      x = 0.5, y = 0.35,
+      width = 0.45, height = 0.4
+    )
+
+  plot_grid(ax_ssb, ax_sst, ax, nrow = 1)
 }
