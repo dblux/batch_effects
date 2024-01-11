@@ -1,5 +1,5 @@
-library(magrittr)
 library(ggplot2)
+library(magrittr)
 library(RColorBrewer)
 library(Seurat)
 theme_set(theme_bw(base_size = 7))
@@ -23,6 +23,7 @@ custom_theme <- theme(
   legend.key = element_rect(fill = "transparent"),
   legend.background = element_rect(fill = "transparent")
 )
+
 
 # Plot: Log-normalised values
 # villani
@@ -347,10 +348,10 @@ print(file)
 
 # Yeoh et al.
 dataname <- "yeoh"
-METADATA_SID <- "data/GSE67684/processed/metadata/sid-metadata_v2.tsv"
-METADATA_PID <- "data/GSE67684/processed/metadata/pid-metadata_v7.tsv"
-metadata_sid <- read.table(METADATA_SID, sep = "\t")
-metadata_pid <- read.table(METADATA_PID, sep = "\t", row.names = 1, quote = '"')
+file1 <- "data/GSE67684/processed/metadata/sid-metadata_v2.tsv"
+file2 <- "data/GSE67684/processed/metadata/pid-metadata_v7.tsv"
+metadata_sid <- read.table(file1, sep = "\t")
+metadata_pid <- read.table(file2, sep = "\t", row.names = 1, quote = '"')
 
 ## Data
 # Removed outliers, patients with timepoints from different batches and batch 5
@@ -468,25 +469,55 @@ print(file)
 
 # westlake
 dataname <- "westlake"
-# with
-file1 <- "data/westlake/processed/balanced.csv"
-file2 <- "data/westlake/processed/metadata/balanced.csv"
-westlake <- read.csv(file1, row.names = 1)
-metadata <- read.csv(file2, row.names = 1)
-metadata$machine <- as.factor(metadata$machine)
-stopifnot(identical(colnames(westlake), rownames(metadata)))
-# without
-file1 <- "data/westlake/processed/fake_batch.csv"
-file2 <- "data/westlake/processed/metadata/fake_batch-balanced1.csv"
-westlake_without <- read.csv(file1, row.names = 1)
-metadata_without <- read.csv(file2, row.names = 1)
-metadata_without$machine <- as.factor(metadata_without$machine)
-stopifnot(identical(colnames(westlake_without), rownames(metadata_without)))
+# with - bal
+file1 <- "data/westlake/processed/sparse/with-bal.csv"
+file2 <- "data/westlake/processed/metadata/with-balanced.csv"
+with_bal <- read.csv(file1, row.names = 1)
+metadata_with_bal <- read.csv(file2, row.names = 1)
+# with - imbal
+file1 <- "data/westlake/processed/sparse/with-imbal.csv"
+file2 <- "data/westlake/processed/metadata/with-severe1.csv"
+with_imbal <- read.csv(file1, row.names = 1)
+metadata_with_imbal <- read.csv(file2, row.names = 1)
+# without - bal
+file1 <- "data/westlake/processed/sparse/without-bal.csv"
+file2 <- "data/westlake/processed/metadata/without-balanced1.csv"
+without_bal <- read.csv(file1, row.names = 1)
+metadata_without_bal <- read.csv(file2, row.names = 1)
+# without - imbal
+file1 <- "data/westlake/processed/sparse/without-imbal.csv"
+file2 <- "data/westlake/processed/metadata/without-severe1.csv"
+without_imbal <- read.csv(file1, row.names = 1)
+metadata_without_imbal <- read.csv(file2, row.names = 1)
+# change numeric to factor
+metadata_with_bal$machine <- as.factor(metadata_with_bal$machine)
+metadata_with_imbal$machine <- as.factor(metadata_with_imbal$machine)
+metadata_without_bal$machine <- as.factor(metadata_without_bal$machine)
+metadata_without_imbal$machine <- as.factor(metadata_without_imbal$machine)
+
+# table(metadata_with_bal$class, metadata_with_bal$machine)
+# table(metadata_with_imbal$class, metadata_with_imbal$machine)
+# table(metadata_without_bal$class, metadata_without_bal$machine)
+# table(metadata_without_imbal$class, metadata_without_imbal$machine)
+
+# plot: PCA
+batch_cols <- brewer.pal(8, "Dark2")[2:4]
+class_cols <- brewer.pal(8, "Dark2")[5:8]
+custom_theme <- theme(
+  title = element_text(size = 6),
+  axis.title.x = element_text(size = 6),
+  axis.title.y = element_text(size = 6),
+  legend.key.size = unit(2.1, "mm"),
+  legend.spacing.x = unit(0.5, "mm"),
+  legend.position = "bottom", 
+  legend.key = element_rect(fill = "transparent"),
+  legend.background = element_rect(fill = "transparent")
+)
 
 # with
 ax_batch <- ggplot_pca(
-  westlake,
-  metadata,
+  with_bal,
+  metadata_with_bal,
   col = "machine",
   show.legend = TRUE,
   plot.axis = FALSE,
@@ -499,8 +530,8 @@ ax_batch <- ggplot_pca(
   scale_color_manual(values = batch_cols) +
   custom_theme
 ax_celltype <- ggplot_pca(
-  westlake,
-  metadata,
+  with_bal,
+  metadata_with_bal,
   col = "class",
   show.legend = TRUE,
   plot.axis = FALSE,
@@ -517,8 +548,8 @@ print(file)
 
 # without
 ax_batch <- ggplot_pca(
-  westlake_without,
-  metadata_without,
+  without_bal,
+  metadata_without_bal,
   col = "machine",
   show.legend = TRUE,
   plot.axis = FALSE,
@@ -531,8 +562,8 @@ ax_batch <- ggplot_pca(
   scale_color_manual(values = batch_cols) +
   custom_theme
 ax_celltype <- ggplot_pca(
-  westlake_without,
-  metadata_without,
+  without_bal,
+  metadata_without_bal,
   col = "class",
   show.legend = TRUE,
   plot.axis = FALSE,

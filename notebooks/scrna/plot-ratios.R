@@ -3,7 +3,6 @@ library(tidyr)
 library(ggplot2)
 library(cowplot)
 theme_set(theme_bw(base_size = 7))
-
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -17,16 +16,10 @@ GGCOLS <- ggplot_palette(6)
 GGCOLS[6] <- "#BF80FF"
 names(GGCOLS) <- METRIC_ORD
 
-# var_gpca_lab <- expression(paste("gPCA ", delta, " * ", S[bold(X)]^2))
-# var_pvca_lab <- expression(paste("PVCA * ", S[bold(X)]^2))
-# var_rvp_lab <- expression(paste("RVP * ", S[bold(X)]^2))
-# var_labs <- c(var_gpca_lab, var_pvca_lab, var_rvp_lab)
-# lab_theoretical <- "Theoretical batch effects variance"
-# lab_metric <- "Batch effects variance (est. by metrics)"
 
 # Horizontal bar chart
 # TODO: Include k and have specific order?
-file <- "tmp/scrna/snr_psr.csv"
+file <- "tmp/snr_psr.csv"
 ratios <- read.csv(file)
 ratios["log2(SNR)"] <- log2(ratios$SNR)
 ratios$Metric <- factor(ratios$Metric, levels = METRIC_ORD)
@@ -48,9 +41,10 @@ for (params in datasets) {
       subset = Dataset == dataset & Param %in% c(k, NA),
       select = c("Metric", "log2(SNR)", "PSR")
     ) %>% 
-    gather(key = "Ratio", value = "Value", -Metric)
+    gather(key = "Ratio", value = "Value", -Metric) %>%
+    na.omit()
   ax <-  ggplot(ratios_dataset) +
-      facet_wrap(~Ratio, nrow = 1, scales = "free_x") +
+      facet_wrap(~Ratio, nrow = 1, scales = "free", drop = TRUE) +
       geom_bar(
         stat = "identity",
         aes(x = Value, y = Metric, fill = Metric),

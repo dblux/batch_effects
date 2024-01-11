@@ -78,6 +78,10 @@ for (f in src_files) {
 # file <- "tmp/microarray/magnitude/short_imbal.csv"
 # write.csv(short_imbal, file, row.names = FALSE)
 
+# var_gpca_lab <- expression(paste("gPCA ", delta, " * ", S[bold(X)]^2))
+# var_pvca_lab <- expression(paste("PVCA * ", S[bold(X)]^2))
+# var_rvp_lab <- expression(paste("RVP * ", S[bold(X)]^2))
+
 # Plots
 cex <- 0.5
 metric_ord <- c("RVP", "gPCA", "PVCA", "CMS", "kBET", "LISI")

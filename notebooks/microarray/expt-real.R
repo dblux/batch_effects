@@ -1,13 +1,12 @@
-library(dplyr)
-library(tibble)
-library(tidyr)
+library(magrittr)
 library(ggplot2)
 library(cowplot)
+library(RColorBrewer)
 library(Biobase)
 library(pvca)
-theme_set(theme_bw())
+theme_set(theme_bw(base_size = 7))
 # source files
-src_files <- list.files('../../relapse_prediction/R', full.names = TRUE)
+src_files <- list.files("R", full.names = TRUE)
 for (f in src_files) {
   source(f)
   cat(sprintf('Sourced file: %s\n', f))
@@ -250,31 +249,61 @@ print(factors)
 rounded_prop <- sapply(var_prop, round, digits = 4)
 do.call(paste, as.list(c(rounded_prop, sep = '; ')))
 
+# WESTLAKE
+# creating new subsets with more features (DDA)
+# feature selection: all features with missing values were removed
+# normalisation? check DDA pipeline
+file <- "data/westlake/raw/DDA/A549.csv"
+a549 <- read.csv(file, row.names = 1)
+file <- "data/westlake/raw/DDA/K562.csv"
+k562 <- read.csv(file, row.names = 1)
 
-# westlake
-dataname <- "westlake"
-# with
-file1 <- "data/westlake/processed/balanced.csv"
-file2 <- "data/westlake/processed/metadata/balanced.csv"
-westlake <- read.csv(file1, row.names = 1)
-metadata <- read.csv(file2, row.names = 1)
-metadata$machine <- as.factor(metadata$machine)
-stopifnot(identical(colnames(westlake), rownames(metadata)))
-# without
-file1 <- "data/westlake/processed/fake_batch.csv"
-file2 <- "data/westlake/processed/metadata/fake_batch-balanced1.csv"
-westlake_without <- read.csv(file1, row.names = 1)
-metadata_without <- read.csv(file2, row.names = 1)
-metadata_without$machine <- as.factor(metadata_without$machine)
-stopifnot(identical(colnames(westlake_without), rownames(metadata_without)))
+symbols <- intersect(rownames(a549), rownames(k562))
+dda <- cbind(k562[symbols, ], a549[symbols, ])
+dda[is.na(dda)] <- 0
+dda_class <- sapply(
+  strsplit(colnames(dda), "_"),
+  function(l) substring(l[[2]], 1, 4)
+)
+dda_sel <- remove_sparse(dda, 0.3, dda_class)
+
+file <- "data/westlake/processed/metadata/with-balanced.csv"
+metadata_with_bal <- read.csv(file, row.names = 1)
+file <- "data/westlake/processed/metadata/with-severe1.csv"
+metadata_with_imbal <- read.csv(file, row.names = 1)
+file <- "data/westlake/processed/metadata/without-balanced1.csv"
+metadata_without_bal <- read.csv(file, row.names = 1)
+file <- "data/westlake/processed/metadata/without-severe1.csv"
+metadata_without_imbal <- read.csv(file, row.names = 1)
+
+metadata_with_bal$machine <- as.factor(metadata_with_bal$machine)
+metadata_with_imbal$machine <- as.factor(metadata_with_imbal$machine)
+metadata_without_bal$machine <- as.factor(metadata_without_bal$machine)
+metadata_without_imbal$machine <- as.factor(metadata_without_imbal$machine)
+
+with_bal <- dda_sel[, rownames(metadata_with_bal)]
+file <- "data/westlake/processed/sparse/with-bal.csv"
+write.csv(with_bal, file)
+with_imbal <- dda_sel[, rownames(metadata_with_imbal)]
+file <- "data/westlake/processed/sparse/with-imbal.csv"
+write.csv(with_imbal, file)
+without_bal <- dda_sel[, rownames(metadata_without_bal)]
+file <- "data/westlake/processed/sparse/without-bal.csv"
+write.csv(without_bal, file)
+without_imbal <- dda_sel[, rownames(metadata_without_imbal)]
+file <- "data/westlake/processed/sparse/without-imbal.csv"
+write.csv(without_imbal, file)
 
 datasets <- list(
-  with = list(X = westlake, metadata = metadata),
-  without = list(X = westlake_without, metadata = metadata_without)
+  with_bal = list(X = with_bal, metadata = metadata_with_bal),
+  with_imbal = list(X = with_imbal, metadata = metadata_with_imbal),
+  without_bal = list(X = without_bal, metadata = metadata_without_bal),
+  without_imbal = list(X = without_imbal, metadata = metadata_without_imbal)
 )
 file <- "data/westlake/processed/westlake-datasets.rds"
 saveRDS(datasets, file)
 
+# view results
 file <- "tmp/microarray/westlake/results.rds"
 results <- readRDS(file)
 str(results)
