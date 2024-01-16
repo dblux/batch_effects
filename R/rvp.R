@@ -25,6 +25,7 @@ rvp <- function(x, ...) UseMethod("rvp", x)
 #' @param cls Vector or list of vectors containing class labels of samples.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 rvp.default <- function(X, batch, cls = NULL) {
+  ### CHECK ARGS ###
   if (ncol(X) != length(batch)) {
     stop("Length of batch does not match number of columns in X!")
   }
@@ -35,38 +36,45 @@ rvp.default <- function(X, batch, cls = NULL) {
   }
   X[is.na(X)] <- 0
   
-  # COMPUTE RVP 
+  ### COMPUTE RVP ###
   if (is.null(cls)) {
+    feature_names <- rownames(X)
     feature_means <- rowMeans(X)
     ss_total <- rowSums((X - feature_means) ^ 2)
     X_batches <- split_cols(X, batch, drop = TRUE)
+    rm(X)
     batch_means <- lapply(X_batches, rowMeans)
     batch_means <- do.call(cbind, batch_means)
     nperbatches <- sapply(X_batches, ncol)
-    squares <- (batch_means - feature_means) ^ 2
+    rm(X_batches)
     # Multiplying a matrix by a vector (broadcasted across rows) is equivalent
     # to multiplying a matrix by a diagonal matrix = diag(vector)
-    ss_batch <- rowSums(squares %*% diag(nperbatches))
-    stopifnot(length(ss_batch) == nrow(X))
+    ss_batch <- rowSums(
+      (batch_means - feature_means) ^ 2 %*% diag(nperbatches)
+    )
+    stopifnot(length(ss_batch) == length(ss_total))
     pct_batch <- sum(ss_batch) / sum(ss_total)
     SS <- cbind(ss_batch, ss_total)
-    rownames(SS) <- rownames(X)
+    rownames(SS) <- feature_names 
     colnames(SS) <- c("ss_batch", "ss_total")
-    # print("rvp.default: vars")
-    # print(sapply(ls(), function(x) object_size(mget(x, inherits = TRUE))))
+
     return(list(RVP = pct_batch, sum.squares = SS))
   } else {
-    feature_means <- rowMeans(X)
-    ss_total <- rowSums((X - feature_means) ^ 2)
+    feature_names <- rownames(X)
+    ss_total <- rowSums((X - rowMeans(X)) ^ 2)
     X_classes <- split_cols(X, cls, drop = TRUE)
+    rm(X)
     batch_classes <- split(batch, cls, drop = TRUE)
-    # Warning: recursive call
-    objs <- mapply(
-      rvp.default, X_classes, batch_classes,
-      MoreArgs = list(cls = NULL),
-      SIMPLIFY = FALSE
+    # Warning: Recursive call
+    SS_classes <- lapply(
+      mapply(
+        rvp.default, X_classes, batch_classes,
+        MoreArgs = list(cls = NULL),
+        SIMPLIFY = FALSE
+      ),
+      function(obj) obj$sum.squares
     )
-    SS_classes <- lapply(objs, function(obj) obj$sum.squares)
+    rm(X_classes)
     # Filters out obj$sum.squares == NA
     SS_classes <- SS_classes[!is.na(SS_classes)]
     if (length(SS_classes) == 0L) {
@@ -77,12 +85,13 @@ rvp.default <- function(X, batch, cls = NULL) {
       stop(confound_message)
     }
     ss_batch_classes <- lapply(SS_classes, function(X) X[, "ss_batch"])
+    rm(SS_classes)
     stopifnot(is.list(ss_batch_classes))
     ss_batch <- Reduce(`+`, ss_batch_classes)
     stopifnot(length(ss_batch) == length(ss_total))
     pct_batch <- sum(ss_batch) / sum(ss_total)
     SS <- cbind(ss_batch, ss_total)
-    rownames(SS) <- rownames(X)
+    rownames(SS) <- feature_names
     colnames(SS) <- c("ss_batch", "ss_total")
 
     return(list(RVP = pct_batch, sum.squares = SS))
@@ -101,6 +110,7 @@ rvp.default <- function(X, batch, cls = NULL) {
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import Matrix
 rvp.sparseMatrix <- function(X, batch, cls = NULL) {
+  ### CHECK ARGS ###
   if (ncol(X) != length(batch)) {
     stop("Length of batch does not match number of columns in X!")
   }
@@ -111,11 +121,13 @@ rvp.sparseMatrix <- function(X, batch, cls = NULL) {
   }
   X[is.na(X)] <- 0
   
-  # COMPUTE RVP 
+  ### COMPUTE RVP ###
   if (is.null(cls)) {
+    feature_names <- rownames(X)
     feature_means <- rowMeans(X, sparseResult = TRUE)
     ss_total <- rowSums((X - feature_means) ^ 2, sparseResult = TRUE)
     X_batches <- split_cols(X, batch, drop = TRUE)
+    rm(X)
     batch_means <- lapply(
       X_batches,
       function(X) as(rowMeans(X, sparseResult = TRUE), "sparseMatrix")
@@ -123,35 +135,42 @@ rvp.sparseMatrix <- function(X, batch, cls = NULL) {
     # N.B. cbind only works on sparseMatrix and not sparseVector
     batch_means <- do.call(cbind, batch_means)
     nperbatches <- sapply(X_batches, ncol)
-    squares <- (batch_means - feature_means) ^ 2
+    rm(X_batches)
     # Multiplying a matrix by a vector (broadcasted across rows) is equivalent
     # to multiplying a matrix by a diagonal matrix = diag(vector)
     ss_batch <- rowSums(
-      squares %*% .sparseDiagonal(x = nperbatches),
+      (batch_means - feature_means) ^ 2 %*% .sparseDiagonal(x = nperbatches),
       sparseResult = TRUE
     )
-    stopifnot(length(ss_batch) == nrow(X))
+    stopifnot(length(ss_batch) == length(ss_total))
     pct_batch <- sum(ss_batch) / sum(ss_total)
     SS <- Matrix(
       cbind(as(ss_batch, "sparseMatrix"), as(ss_total, "sparseMatrix")),
-      dimnames = list(rownames(X), c("ss_batch", "ss_total")),
+      dimnames = list(feature_names, c("ss_batch", "ss_total")),
       sparse = TRUE
     )
     # print("rvp.sparseMatrix: vars")
     # print(sapply(ls(), function(x) object_size(mget(x, inherits = TRUE))))
     return(list(RVP = pct_batch, sum.squares = SS))
   } else {
-    feature_means <- rowMeans(X, sparseResult = TRUE)
-    ss_total <- rowSums((X - feature_means) ^ 2, sparseResult = TRUE)
-    X_classes <- split_cols(X, cls, drop = TRUE)
-    batch_classes <- split(batch, cls, drop = TRUE)
-    # Warning: recursive call
-    objs <- mapply(
-      rvp.sparseMatrix, X_classes, batch_classes,
-      MoreArgs = list(cls = NULL),
-      SIMPLIFY = FALSE
+    feature_names <- rownames(X)
+    ss_total <- rowSums(
+      (X - rowMeans(X, sparseResult = TRUE)) ^ 2,
+      sparseResult = TRUE
     )
-    SS_classes <- lapply(objs, function(obj) obj$sum.squares)
+    X_classes <- split_cols(X, cls, drop = TRUE)
+    rm(X)
+    batch_classes <- split(batch, cls, drop = TRUE)
+    # Warning: Recursive call
+    SS_classes <- lapply(
+      mapply(
+        rvp.sparseMatrix, X_classes, batch_classes,
+        MoreArgs = list(cls = NULL),
+        SIMPLIFY = FALSE
+      ),
+      function(obj) obj$sum.squares
+    )
+    rm(X_classes)
     # Filters out obj$sum.squares == NA
     SS_classes <- SS_classes[!is.na(SS_classes)]
     if (length(SS_classes) == 0L) {
@@ -166,6 +185,7 @@ rvp.sparseMatrix <- function(X, batch, cls = NULL) {
       # N.B. drop = False to return sparseMatrix instead of dense vector
       function(X) X[, "ss_batch", drop = FALSE]
     )
+    rm(SS_classes)
     stopifnot(is.list(ss_batch_classes))
     ss_batch <- Reduce(`+`, ss_batch_classes)
     # TODO: Check if there is a problem with ss_batch being a sparseMatrix 
@@ -174,7 +194,7 @@ rvp.sparseMatrix <- function(X, batch, cls = NULL) {
     pct_batch <- sum(ss_batch) / sum(ss_total)
     SS <- Matrix(
       cbind(as(ss_batch, "sparseMatrix"), as(ss_total, "sparseMatrix")),
-      dimnames = list(rownames(X), c("ss_batch", "ss_total")),
+      dimnames = list(feature_names, c("ss_batch", "ss_total")),
       sparse = TRUE
     )
 

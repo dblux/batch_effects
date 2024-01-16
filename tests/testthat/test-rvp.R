@@ -21,6 +21,7 @@ tpm(villani) <- Matrix(tpm(villani))
 
 
 ## UNIT TESTS ###
+# BatchQC dataset
 test_that("split_cols works when arg: f is a list of vectors", {
   Xs <- split_cols(X, list(class1, class2), drop = TRUE)
 
@@ -28,8 +29,6 @@ test_that("split_cols works when arg: f is a list of vectors", {
   expect_identical(unname(sapply(Xs, nrow)), rep(nrow(X), 4))
 })
 
-
-# BatchQC dataset
 RVP_BATCHQC <- 0.0442705
 test_that("rvp works on a dense matrix", {
   # test that arg: batch, cls can be of type {numeric, character, factor}
