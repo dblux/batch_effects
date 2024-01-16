@@ -16,7 +16,8 @@ echo "Created file: $timefile"
 echo "Created file: $memfile"
 
 # sizes=($(seq 2000 2000 10000))
-metrics=(rvp gpca pvca cms kbet lisi)
+metrics=(rvp rvps cms)
+# metrics=(rvp gpca pvca cms kbet lisi)
 
 for metric in ${metrics[@]}
 do

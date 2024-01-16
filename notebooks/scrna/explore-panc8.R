@@ -1,14 +1,10 @@
 library(tidyr)
 library(magrittr)
-library(Matrix)
-
 library(ggplot2)
 library(cowplot)
 theme_set(theme_bw())
-
 library(Seurat)
 library(SeuratData)
-
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -159,3 +155,11 @@ ggsave(file, ax_umap, width = 6, height = 4)
 
 # Explore SeuratData
 subset(AvailableData(), species == "mouse")
+
+# Benchmarking
+file <- "data/panc8/panc8_sel.rds"
+panc8 <- readRDS(file)
+head(panc8@meta.data)
+table(panc8$celltype, panc8$tech)
+# no embeddings in panc8
+str(panc8)

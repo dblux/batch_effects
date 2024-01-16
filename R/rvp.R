@@ -1,19 +1,93 @@
 #' Recursive variance partitioning (RVP)
 #'
-#' Calculates percentage of variance in data due to batch effects. It is a
-#' generic function that invokes convenience S3 methods for the
-#' SingleCellExperiment and Seurat classes.
+#' Calculates percentage of variance in data due to batch effects (S3 generic
+#' function).
 #'
 #' @param X Dataframe or matrix with dim (n_samples, n_features).
 #' @param batch Vector containing batch labels of samples.
 #' @param cls Vector or list of vectors containing class labels of samples.
-#' @param ret.percent Logical indicating whether to only return percentage of
-#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 rvp <- function(x, ...) UseMethod("rvp", x)
 
 
-# TODO: Handle class: Matrix (sparse)
+# TODO: Refactor permutation test as a standalone function
+# TODO: Refactor rvp.default as an inner function .rvp.default
+# TODO: Create private S3 generic .rvp which dispatches to .rvp.default and.rvp.sparseMatrix
+# TODO: Change rvp.default to include permutation tests and to call .rvp
+
+#' Recursive variance partitioning (RVP)
+#'
+#' Calculates percentage of variance in data due to batch effects. Default S3
+#' method of the generic rvp function for data.frame or matrix classes.
+#'
+#' @param X Dataframe or matrix with dim (n_features, n_samples).
+#' @param batch Vector containing batch labels of samples.
+#' @param cls Vector or list of vectors containing class labels of samples.
+#' @return numeric indicating total percentage of variance in data due to batch effects.
+rvp.default <- function(X, batch, cls = NULL) {
+  if (ncol(X) != length(batch)) {
+    stop("Length of batch does not match number of columns in X!")
+  }
+  if (length(unique(batch)) == 1L) {
+    # Use NA as is.na works on lists
+    message("Only one batch present!")
+    return(list(RVP = 0, sum.squares = NA)) # only one batch is present
+  }
+  X[is.na(X)] <- 0
+  
+  # COMPUTE RVP 
+  if (is.null(cls)) {
+    feature_means <- rowMeans(X)
+    ss_total <- rowSums((X - feature_means) ^ 2)
+    X_batches <- split_cols(X, batch, drop = TRUE)
+    batch_means <- lapply(X_batches, rowMeans)
+    batch_means <- do.call(cbind, batch_means)
+    nperbatches <- sapply(X_batches, ncol)
+    squares <- (batch_means - feature_means) ^ 2
+    # Multiplying a matrix by a vector (broadcasted across rows) is equivalent
+    # to multiplying a matrix by a diagonal matrix = diag(vector)
+    ss_batch <- rowSums(squares %*% diag(nperbatches))
+    stopifnot(length(ss_batch) == nrow(X))
+    pct_batch <- sum(ss_batch) / sum(ss_total)
+    SS <- cbind(ss_batch, ss_total)
+    rownames(SS) <- rownames(X)
+    colnames(SS) <- c("ss_batch", "ss_total")
+    # print("rvp.default: vars")
+    # print(sapply(ls(), function(x) object_size(mget(x, inherits = TRUE))))
+    return(list(RVP = pct_batch, sum.squares = SS))
+  } else {
+    feature_means <- rowMeans(X)
+    ss_total <- rowSums((X - feature_means) ^ 2)
+    X_classes <- split_cols(X, cls, drop = TRUE)
+    batch_classes <- split(batch, cls, drop = TRUE)
+    # Warning: recursive call
+    objs <- mapply(
+      rvp.default, X_classes, batch_classes,
+      MoreArgs = list(cls = NULL),
+      SIMPLIFY = FALSE
+    )
+    SS_classes <- lapply(objs, function(obj) obj$sum.squares)
+    # Filters out obj$sum.squares == NA
+    SS_classes <- SS_classes[!is.na(SS_classes)]
+    if (length(SS_classes) == 0L) {
+      confound_message <- paste(
+        "RVP is unable to quantify batch effects as batch and class",
+        "are completely confounded!"
+      )
+      stop(confound_message)
+    }
+    ss_batch_classes <- lapply(SS_classes, function(X) X[, "ss_batch"])
+    stopifnot(is.list(ss_batch_classes))
+    ss_batch <- Reduce(`+`, ss_batch_classes)
+    stopifnot(length(ss_batch) == length(ss_total))
+    pct_batch <- sum(ss_batch) / sum(ss_total)
+    SS <- cbind(ss_batch, ss_total)
+    rownames(SS) <- rownames(X)
+    colnames(SS) <- c("ss_batch", "ss_total")
+
+    return(list(RVP = pct_batch, sum.squares = SS))
+  }
+}
 
 
 #' Recursive variance partitioning (RVP)
@@ -21,78 +95,90 @@ rvp <- function(x, ...) UseMethod("rvp", x)
 #' Calculates percentage of variance in data due to batch effects. Default S3
 #' method of the generic rvp function for data.frame or matrix classes.
 #'
-#' @param X Dataframe or matrix with dim (n_samples, n_features).
+#' @param X Dataframe or matrix with dim (n_features, n_samples).
 #' @param batch Vector containing batch labels of samples.
 #' @param cls Vector or list of vectors containing class labels of samples.
-#' @param ret.percent Logical indicating whether to only return percentage of
-#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
-rvp.default <- function(X, batch, cls = NULL, ret.percent = TRUE) {
-  if (nrow(X) != length(batch))
-    stop("Length of batch does not match number of rows in X!")
-  if (is.vector(cls) || is.factor(cls))
-    cls <- as.character(cls)
-  if (length(unique(batch)) == 1) {
-    # Use NA as is.na works on lists
-    return(list(percent.batch = 0, sum.squares = NA)) # only one batch is present
+#' @import Matrix
+rvp.sparseMatrix <- function(X, batch, cls = NULL) {
+  if (ncol(X) != length(batch)) {
+    stop("Length of batch does not match number of columns in X!")
   }
-
+  if (length(unique(batch)) == 1L) {
+    # Use NA as is.na works on lists
+    message("Only one batch present!")
+    return(list(RVP = 0, sum.squares = NA)) # only one batch is present
+  }
   X[is.na(X)] <- 0
-  batch <- as.character(batch)
   
   # COMPUTE RVP 
   if (is.null(cls)) {
-    feature_means <- colMeans(X)
-    ss_total <- colSums(sweep(X, 2, feature_means, `-`) ^ 2)
-    X_batches <- split.data.frame(X, batch)
-    # rm(X)
-    batch_means <- sapply(X_batches, function(X) colMeans(X))
-    nperbatches <- sapply(X_batches, nrow)
+    feature_means <- rowMeans(X, sparseResult = TRUE)
+    ss_total <- rowSums((X - feature_means) ^ 2, sparseResult = TRUE)
+    X_batches <- split_cols(X, batch, drop = TRUE)
+    batch_means <- lapply(
+      X_batches,
+      function(X) as(rowMeans(X, sparseResult = TRUE), "sparseMatrix")
+    )
+    # N.B. cbind only works on sparseMatrix and not sparseVector
+    batch_means <- do.call(cbind, batch_means)
+    nperbatches <- sapply(X_batches, ncol)
     squares <- (batch_means - feature_means) ^ 2
-    ss_batch <- rowSums(sweep(squares, 2, nperbatches, `*`))
-
-    stopifnot(length(ss_batch) == ncol(X))
+    # Multiplying a matrix by a vector (broadcasted across rows) is equivalent
+    # to multiplying a matrix by a diagonal matrix = diag(vector)
+    ss_batch <- rowSums(
+      squares %*% .sparseDiagonal(x = nperbatches),
+      sparseResult = TRUE
+    )
+    stopifnot(length(ss_batch) == nrow(X))
     pct_batch <- sum(ss_batch) / sum(ss_total)
-    if (ret.percent) {
-      return(pct_batch)
-    } else {
-      return(list(
-        percent.batch = pct_batch,
-        sum.squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
-      ))
-    }
+    SS <- Matrix(
+      cbind(as(ss_batch, "sparseMatrix"), as(ss_total, "sparseMatrix")),
+      dimnames = list(rownames(X), c("ss_batch", "ss_total")),
+      sparse = TRUE
+    )
+    # print("rvp.sparseMatrix: vars")
+    # print(sapply(ls(), function(x) object_size(mget(x, inherits = TRUE))))
+    return(list(RVP = pct_batch, sum.squares = SS))
   } else {
-    ss_total <- colSums(sweep(X, 2, colMeans(X), `-`) ^ 2)
-    # If cls is list, splits by all vectors in list
-    X_classes <- split.data.frame(X, cls)
-    # rm(X)
-    X_classes <- Filter(function(X) nrow(X) != 0, X_classes)
-    classes_string <- do.call(paste, as.list(names(X_classes)))
-    # message(sprintf("Split into classes: %s", classes_string))
-    batch_classes <- split(batch, cls)
-    batch_classes <- Filter(function(x) length(x) != 0, batch_classes)
+    feature_means <- rowMeans(X, sparseResult = TRUE)
+    ss_total <- rowSums((X - feature_means) ^ 2, sparseResult = TRUE)
+    X_classes <- split_cols(X, cls, drop = TRUE)
+    batch_classes <- split(batch, cls, drop = TRUE)
     # Warning: recursive call
     objs <- mapply(
-      rvp.default, X_classes, batch_classes,
-      MoreArgs = list(cls = NULL, ret.percent = FALSE),
+      rvp.sparseMatrix, X_classes, batch_classes,
+      MoreArgs = list(cls = NULL),
       SIMPLIFY = FALSE
     )
-    sumsquares_classes <- lapply(objs, function(obj) obj$sum.squares)
+    SS_classes <- lapply(objs, function(obj) obj$sum.squares)
     # Filters out obj$sum.squares == NA
-    sumsquares_classes <- sumsquares_classes[!is.na(sumsquares_classes)]
-    ss_batch_classes <- lapply(sumsquares_classes, function(X) X$ss_batch)
+    SS_classes <- SS_classes[!is.na(SS_classes)]
+    if (length(SS_classes) == 0L) {
+      confound_message <- paste(
+        "RVP is unable to quantify batch effects as batch and class",
+        "are completely confounded!"
+      )
+      stop(confound_message)
+    }
+    ss_batch_classes <- lapply(
+      SS_classes,
+      # N.B. drop = False to return sparseMatrix instead of dense vector
+      function(X) X[, "ss_batch", drop = FALSE]
+    )
     stopifnot(is.list(ss_batch_classes))
     ss_batch <- Reduce(`+`, ss_batch_classes)
+    # TODO: Check if there is a problem with ss_batch being a sparseMatrix 
+    # and ss_total being a sparseVector
     stopifnot(length(ss_batch) == length(ss_total))
     pct_batch <- sum(ss_batch) / sum(ss_total)
-    if (ret.percent) {
-      return(pct_batch)
-    } else {
-      return(list(
-        percent.batch = pct_batch,
-        sum.squares = data.frame(ss_batch, ss_total, row.names = colnames(X))
-      ))
-    }
+    SS <- Matrix(
+      cbind(as(ss_batch, "sparseMatrix"), as(ss_total, "sparseMatrix")),
+      dimnames = list(rownames(X), c("ss_batch", "ss_total")),
+      sparse = TRUE
+    )
+
+    return(list(RVP = pct_batch, sum.squares = SS))
   }
 }
 
@@ -104,18 +190,15 @@ rvp.default <- function(X, batch, cls = NULL, ret.percent = TRUE) {
 #' @param classname Character vector of column name/s of colData representing class information.
 #' @param dataname Character vector of assay name of SCE object. By default
 #'   the first assay is used.
-#' @param ret.percent Logical indicating whether to only return percentage of
-#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @import SingleCellExperiment, Matrix
 rvp.SingleCellExperiment <- function(
-  sce, batchname, classname,
-  dataname = NULL, ret.percent = TRUE
+  sce, batchname, classname, dataname = NULL
 ) {
   X <- if (is.null(dataname)) {
-    Matrix::t(assay(sce))
+    assay(sce)
   } else {
-    Matrix::t(assay(sce, dataname))
+    assay(sce, dataname)
   }
   batch <- sce[[batchname]]
   # TODO: Handle classname == NULL
@@ -124,7 +207,7 @@ rvp.SingleCellExperiment <- function(
   } else {
     sce[[classname]]
   }
-  return(rvp.default(X, batch, cls, ret.percent))
+  return(rvp(X, batch, cls))
 }
 
 
@@ -137,18 +220,16 @@ rvp.SingleCellExperiment <- function(
 #' @param nperm Number of permutations to simulate in the Monte Carlo
 #'   permutation test. A mininum value of 100 is required. By default, no
 #'   permutation testing is performed.
-#' @param ret.percent Logical indicating whether to only return percentage of
-#'   variance due to batch.
 #' @return numeric indicating total percentage of variance in data due to batch effects.
 #' @export
 rvp.Seurat <- function(
   obj, batchname, classname,
-  layer = "data", nperm = 0, ret.percent = TRUE
+  layer = "data", nperm = 0
 ) {
   # Enhances: Matrix, Seurat/SeuratObject
   # GetAssayData is for Seurat assay v3/v4
   # GetAssayData is either from the Seurat or SeuratObject package
-  X <- Matrix::t(GetAssayData(obj, layer = layer))
+  X <- GetAssayData(obj, layer = layer)
   batch <- obj@meta.data[[batchname]]
   # TODO: Handle classname == NULL
   cls <- if (length(classname) > 1) {
@@ -157,9 +238,8 @@ rvp.Seurat <- function(
   } else {
     obj@meta.data[[classname]]
   }
-  rvp_obj <- rvp.default(X, batch, cls, ret.percent = FALSE)
+  rvp_obj <- rvp(X, batch, cls)
   if (nperm > 0) {
-    # TODO: Re-design RVP - Make standalone permtest func (helper func?)
     # TODO: Multiprocessing for permtest
     stopifnot(nperm >= 100)
     pb <- progress::progress_bar$new(
@@ -170,17 +250,17 @@ rvp.Seurat <- function(
     null_distr <- numeric()
     for (i in seq_len(nperm)) {
       shuffled_batch <- sample(batch)
-      null_pct <- rvp.default(X, shuffled_batch, cls, ret.percent = TRUE)
+      null_pct <- rvp(X, shuffled_batch, cls)
       null_distr <- c(null_distr, null_pct)
       pb$tick()
     }
-    pct_batch <- rvp_obj$percent.batch
+    pct_batch <- rvp_obj$RVP
     pvalue <- sum(null_distr > pct_batch) / nperm
     rvp_obj$null.distribution <- null_distr
     rvp_obj$p.value <- pvalue
   }
-  if (nperm == 0 && ret.percent) {
-    return(rvp_obj$percent.batch)
+  if (nperm == 0) {
+    return(rvp_obj$RVP)
   } else {
     return(rvp_obj)
   }
@@ -195,7 +275,7 @@ plot_rvp <- function(rvp_obj, m = NULL, cex = 1) {
   xlab <- "Feature index"
   sum_sq <- rvp_obj$sum.squares
   sum_sq <- sum_sq[rev(order(sum_sq$ss_total)), ]
-  RVP <- rvp_obj$percent.batch
+  RVP <- rvp_obj$RVP
 
   if (is.numeric(m))
     sum_sq <- sum_sq[seq_len(m), , drop = FALSE]
@@ -244,4 +324,22 @@ plot_rvp <- function(rvp_obj, m = NULL, cex = 1) {
     )
 
   plot_grid(ax_ssb, ax_sst, ax, nrow = 1)
+}
+
+
+#' Divides array-like objects according to their columns
+#'
+#' @param x array-like object to be divided
+#' @param f vector or list of vectors indicating the grouping of columns
+#' @param drop logical indicating if levels that do not occur should be dropped
+split_cols <- function(x, f, drop = FALSE, ...) {
+  if (is.list(f)) {
+    stopifnot(all(sapply(f, length) == ncol(x)))
+  } else {
+    stopifnot(length(f) == ncol(x))
+  }
+  lapply(
+    split(seq_len(ncol(x)), f, drop, ...),
+    function(ind) x[, ind, drop = FALSE]
+  )
 }
