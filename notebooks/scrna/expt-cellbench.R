@@ -2,11 +2,10 @@ library(Seurat)
 library(magrittr)
 library(ggplot2)
 library(cowplot)
-theme_set(theme_bw())
+theme_set(theme_bw(base_size = 7))
 library(biomaRt)
 library(kBET)
 library(lisi)
-
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -14,9 +13,9 @@ for (f in src_files) {
   cat(f, fill = TRUE)
 }
 
-# cellbench
-- Counts data
-- QC metrics calculated using scPipe
+# Dataset: Cellbench
+# - Counts data
+# - QC metrics calculated using scPipe
 
 file <- "data/cellbench/cellbench-seurat.rds"
 cellbench <- readRDS(file)
@@ -194,7 +193,6 @@ for (idx in names(cellbench_objs)) {
 # plot(1 - percent.ribo, cellbench$non_ribo_percent, xlim = c(0, 1), ylim = c(0, 1))
 # abline(a = 0, b = 1)
 
-
 cellbench_sub1 <- cellbench_sub %>%
   NormalizeData() %>%
   FindVariableFeatures() %>%
@@ -211,3 +209,67 @@ ax2 <- DimPlot(
 ax <- plot_grid(ax1, ax2, rel_widths = c(1, 1))
 file <- "tmp/fig/cellbench-pca_log_fvf.png"
 ggsave(file, ax, width = 10, height = 5)
+
+# Plot: Permutation tests
+file <- "tmp/scrna/cellbench/cellbench-datasets.rds"
+datasets <- readRDS(file)
+
+rvp_with <- rvp(datasets$bal, "batch", "celltype", nperm = 1000)
+rvp_without <- rvp(datasets$negctrl_bal, "batch", "celltype", nperm = 1000)
+
+file <- "tmp/scrna/cellbench/rvp_with-permutations.rds"
+rvp_with <- readRDS(file)
+file <- "tmp/scrna/cellbench/rvp_without-permutations.rds"
+rvp_without <- readRDS(file)
+
+ax1 <- data.frame(rvp = rvp_with$null.distribution) %>%
+  ggplot() +
+    geom_histogram(
+      aes(x = rvp), fill = "lightblue", col = "black", size = 0.2
+    ) +
+    geom_vline(xintercept = rvp_with$RVP, col = "red") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+      # legend.title = element_blank(),
+      # legend.key.size = unit(4, "mm"),
+      # legend.spacing.y = unit(1, "pt")
+    ) +
+    labs(
+      title = "Permutation null distribution (n = 1000)",
+      subtitle = "Data with batch effects",
+      x = "RVP", y = "Count"
+    ) +
+    annotate(
+      geom = "text", x = rvp_with$RVP - 0.01, y = 650,
+      label = sprintf("Observed (p = %.2f)", rvp_with$p.value),
+      color = "red", cex = 1.7, angle = 90
+    )
+file <- "tmp/fig/permutations-with.pdf"
+ggsave(file, ax1, width = 2.6, height = 2)
+
+ax2 <- data.frame(rvp = rvp_without$null.distribution) %>%
+  ggplot() +
+    geom_histogram(
+      aes(x = rvp), fill = "lightblue", col = "black", size = 0.2
+    ) +
+    geom_vline(xintercept = rvp_without$RVP, col = "red") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+      # legend.title = element_blank(),
+      # legend.key.size = unit(4, "mm"),
+      # legend.spacing.y = unit(1, "pt")
+    ) +
+    labs(
+      title = "Permutation null distribution (n = 1000)",
+      subtitle = "Data without batch effects",
+      x = "RVP", y = "Count"
+    ) +
+    annotate(
+      geom = "text", x = rvp_without$RVP - 2e-4, y = 65,
+      label = sprintf("Observed (p = %.2f)", rvp_without$p.value),
+      color = "red", cex = 1.7, angle = 90
+    )
+file <- "tmp/fig/permutations-without.pdf"
+ggsave(file, ax2, width = 2.6, height = 2)

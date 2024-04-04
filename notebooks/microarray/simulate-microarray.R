@@ -1,7 +1,7 @@
 library(ggplot2)
 library(magrittr)
-theme_set(theme_bw(base_size = 8))
-
+library(RColorBrewer)
+theme_set(theme_bw(base_size = 7))
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -195,13 +195,6 @@ data <- simulate_microarray(
 
 
 # Plot
-## PCA
-ax_pca <- ggplot_pca(
-  data$X, data$metadata, cex = 1,
-  col = 'batch', pch = 'class'
-)
-file <- "tmp/fig/pca-dea_phi30_without_imbal.png"
-ggsave(file, ax_pca, width = 4, height = 3)
 
 ## Feature
 i <- 0
@@ -240,3 +233,201 @@ ax_pca <- ggplot_pca(
 )
 file <- "tmp/fig/scrna-pca_without_imbal.png"
 ggsave(file, ax_pca, width = 4, height = 3)
+
+## PCA
+# Plot: PCA
+batch_cols <- brewer.pal(7, "Dark2")[2:4]
+class_cols <- brewer.pal(7, "Dark2")[5:7]
+
+# Balanced
+file <- "tmp/microarray/magnitude/short_bal.csv"
+short_bal <- read.csv(file)
+show.legend <- FALSE
+batch_sizes <- seq(0, 1, 0.1)
+for (i in seq_len(length(batch_sizes))) {
+  batch_size <- batch_sizes[i]
+  file1a <- sprintf(
+    "data/simulated/microarray/magnitude/bal-%.01f.rds", batch_size
+  )
+  bvar_title <- sprintf(
+    "Variance = %.00f",
+    short_bal$expected_batch_var[i]
+  )
+  simdata <- readRDS(file1a)
+  colnames(simdata$metadata) <- c("Class", "Batch")
+  ax <- 2 ^ simdata$X %>%
+    scale_trimmed() %>%
+    log2_transform() %>%
+    ggplot_pca(
+      simdata$metadata, col = "Batch", pch = "Class",
+      cex = 1.5, alpha = 0.7, show.legend = FALSE, plot.axis = FALSE
+    )
+  ax <- ax +
+    labs(title = bvar_title) +
+    theme(
+      title = element_text(size = 6),
+      plot.title = element_text(hjust = 0.5),
+      axis.title.x = element_text(size = 5),
+      axis.title.y = element_text(size = 5),
+      legend.key.size = unit(4, "mm")
+    ) +
+    scale_color_manual(values = batch_cols)
+  file <- sprintf(
+    "tmp/fig/microarray/magnitude/pca-microarray_bal_%.01f.pdf", batch_size
+  )
+  ggsave(file, ax, width = 1.4, height = 1.4)
+  print(file)
+}
+
+# Plot labels at the bottom
+i <- 9
+batch_size <- batch_sizes[i]
+file1a <- sprintf(
+  "data/simulated/microarray/magnitude/bal-%.01f.rds", batch_size
+)
+bvar_title <- sprintf(
+  "Variance = %.00f",
+  short_bal$expected_batch_var[i]
+)
+simdata <- readRDS(file1a)
+colnames(simdata$metadata) <- c("Class", "Batch")
+ax <- 2 ^ simdata$X %>%
+  scale_trimmed() %>%
+  log2_transform() %>%
+  ggplot_pca(
+    simdata$metadata, col = "Batch", pch = "Class",
+    cex = 1.5, alpha = 0.7, show.legend = TRUE, plot.axis = FALSE
+  )
+ax <- ax +
+  labs(title = bvar_title) +
+  guides(pch = "none") +
+  theme(
+    title = element_text(size = 6),
+    plot.title = element_text(hjust = 0.5),
+    axis.title.x = element_text(size = 5),
+    axis.title.y = element_text(size = 5),
+    legend.position = "bottom", 
+    legend.key.size = unit(4, "mm")
+  ) +
+  scale_color_manual(values = batch_cols)
+file <- sprintf(
+  "tmp/fig/microarray/magnitude/pca-microarray_bal_%.01f-lab.pdf", batch_size
+)
+ggsave(file, ax, width = 1.5, height = 1.9)
+print(file)
+
+# Plot labels at the bottom
+i <- 11
+batch_size <- batch_sizes[i]
+file1a <- sprintf(
+  "data/simulated/microarray/magnitude/bal-%.01f.rds", batch_size
+)
+bvar_title <- sprintf(
+  "Variance = %.00f",
+  short_bal$expected_batch_var[i]
+)
+simdata <- readRDS(file1a)
+colnames(simdata$metadata) <- c("Class", "Batch")
+ax <- 2 ^ simdata$X %>%
+  scale_trimmed() %>%
+  log2_transform() %>%
+  ggplot_pca(
+    simdata$metadata, col = "Batch", pch = "Class",
+    cex = 1.5, alpha = 0.7, show.legend = TRUE, plot.axis = FALSE
+  )
+ax <- ax +
+  labs(title = bvar_title) +
+  guides(color = "none") +
+  theme(
+    title = element_text(size = 6),
+    plot.title = element_text(hjust = 0.5),
+    axis.title.x = element_text(size = 5),
+    axis.title.y = element_text(size = 5),
+    legend.position = "bottom", 
+    legend.key.size = unit(4, "mm")
+  ) +
+  scale_color_manual(values = batch_cols)
+file <- sprintf(
+  "tmp/fig/microarray/magnitude/pca-microarray_bal_%.01f-lab.pdf", batch_size
+)
+ggsave(file, ax, width = 1.5, height = 1.9)
+print(file)
+
+# Plot labels at the right
+i <- 11
+batch_size <- batch_sizes[i]
+file1a <- sprintf(
+  "data/simulated/microarray/magnitude/bal-%.01f.rds", batch_size
+)
+bvar_title <- sprintf(
+  "Variance = %.00f",
+  short_bal$expected_batch_var[i]
+)
+simdata <- readRDS(file1a)
+colnames(simdata$metadata) <- c("Class", "Batch")
+ax <- 2 ^ simdata$X %>%
+  scale_trimmed() %>%
+  log2_transform() %>%
+  ggplot_pca(
+    simdata$metadata, col = "Batch", pch = "Class",
+    cex = 1.5, alpha = 0.7, show.legend = TRUE, plot.axis = FALSE
+  )
+ax <- ax +
+  labs(title = bvar_title) +
+  theme(
+    title = element_text(size = 6),
+    plot.title = element_text(hjust = 0.5),
+    axis.title.x = element_text(size = 5),
+    axis.title.y = element_text(size = 5),
+    legend.position = "right", 
+    legend.key.size = unit(4, "mm")
+  ) +
+  scale_color_manual(values = batch_cols)
+file <- sprintf(
+  "tmp/fig/microarray/magnitude/pca-microarray_bal_%.01f-lab.pdf", batch_size
+)
+ggsave(file, ax, width = 1.8, height = 1.4)
+print(file)
+
+# Imbalanced
+file <- "tmp/microarray/magnitude/short_imbal.csv"
+short_imbal <- read.csv(file)
+show.legend <- FALSE
+width <- 1.5
+for (i in seq_len(length(batch_sizes))) {
+  if (i == 11) {
+    show.legend <- TRUE
+    width <- 1.9
+  }
+  batch_size <- batch_sizes[i]
+  file1a <- sprintf(
+    "data/simulated/microarray/magnitude/imbal-%.01f.rds", batch_size
+  )
+  bvar_title <- sprintf(
+    "Variance = %.00f",
+    short_imbal$expected_batch_var[i]
+  )
+  simdata <- readRDS(file1a)
+  colnames(simdata$metadata) <- c("Class", "Batch")
+  ax <- 2 ^ simdata$X %>%
+    scale_trimmed() %>%
+    log2_transform() %>%
+    ggplot_pca(
+      simdata$metadata, col = "Batch", pch = "Class",
+      cex = 1.5, alpha = 0.7, show.legend = show.legend, plot.axis = FALSE
+    )
+  ax <- ax +
+    labs(title = bvar_title) +
+    theme(
+      title = element_text(size = 6),
+      axis.title.x = element_text(size = 5),
+      axis.title.y = element_text(size = 5),
+      legend.key.size = unit(4, "mm")
+    ) +
+    scale_color_manual(values = batch_cols)
+  file <- sprintf(
+    "tmp/fig/microarray/magnitude/pca-microarray_imbal_%.01f.jpg", batch_size
+  )
+  ggsave(file, ax, width = width, height = 1.5)
+  print(file)
+}

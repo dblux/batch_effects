@@ -38,7 +38,7 @@ if (k == 0) {
   k.cms <- k0 <- perplexity <- k
 }
 # workout which metric to run
-if (opt$metrics %in% c("cms", "kbet", "lisi")) {
+if (opt$metrics %in% c("rvp", "cms", "kbet", "lisi", "gpca", "pvca")) {
   metrics <- opt$metrics
 } else if (opt$metrics == "all") {
   metrics <- c("rvp", "cms", "kbet", "lisi", "gpca", "pvca")
@@ -46,6 +46,8 @@ if (opt$metrics %in% c("cms", "kbet", "lisi")) {
   metrics <- c("cms", "kbet", "lisi")
 } else if (opt$metrics == "rgp") {
   metrics <- c("rvp", "gpca", "pvca")
+} else if (opt$metrics == "gp") {
+  metrics <- c("gpca", "pvca")
 } else {
   stop("flag:metric is not in acceptable list of values.")
 }

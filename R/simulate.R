@@ -100,7 +100,7 @@ simulate_microarray <- function(
 
   # Sample specific scaling term (in log space)
   log_alpha <- rnorm(n, 0, kappa)
-  Z <- sweep(Z, 2, log_alpha, `+`)
+  W <- sweep(Z, 2, log_alpha, `+`)
 
   # Batch effects
   log_beta <- matrix(rnorm(m * n_batch, 0, delta), m, n_batch)
@@ -112,7 +112,7 @@ simulate_microarray <- function(
     }
   }
 
-  X <- Z + omega
+  X <- W + omega
   X[X < 0] <- 0 # set negative values to zero
 
   if (dropout) {
@@ -129,8 +129,9 @@ simulate_microarray <- function(
   list(
     X = X, metadata = metadata,
     diff.features = diff.features,
-    Z = Z, batch.terms = omega,
+    W = W, batch.terms = omega,
     class.logfc = log_rho, batch.logfc = log_beta,
+    log_psi = log_psi, Z = Z, log_alpha = log_alpha,
     params = params
   )
 }

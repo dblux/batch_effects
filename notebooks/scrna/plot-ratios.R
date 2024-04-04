@@ -18,19 +18,19 @@ names(GGCOLS) <- METRIC_ORD
 
 
 # Horizontal bar chart
-# TODO: Include k and have specific order?
 file <- "tmp/snr_psr.csv"
 ratios <- read.csv(file)
 ratios["log2(SNR)"] <- log2(ratios$SNR)
+ratios$PSR <- abs(ratios$PSR)
 ratios$Metric <- factor(ratios$Metric, levels = METRIC_ORD)
 
 datasets <- list(
-  c("villani", 40, "Villani et al."),
-  c("halfmix", 200, "Zheng et al."),
-  c("cellbench", 40, "Tian et al."),
-  c("maqc", NA, "MAQC"),
-  c("yeoh", NA, "Yeoh et al."),
-  c("westlake", NA, "Wang et al.")
+  c("villani", 40, "Villani et al. (scRNA-seq)"),
+  c("halfmix", 200, "Zheng et al. (scRNA-seq)"),
+  c("cellbench", 40, "Tian et al. (scRNA-seq)"),
+  c("maqc", NA, "MAQC (microarray)"),
+  c("yeoh", NA, "Yeoh et al. (microarray)"),
+  c("westlake", NA, "Wang et al. (proteomics)")
 )
 for (params in datasets) {
   dataset <- params[1]
@@ -60,9 +60,9 @@ for (params in datasets) {
       scale_fill_manual(values = GGCOLS) +
       labs(title = author) +
       scale_y_discrete(limits = rev)
-  file <- sprintf("tmp/fig/real/%s-ratios.jpg", dataset)
+  file <- sprintf("tmp/fig/real/%s-ratios.pdf", dataset)
   print(file)
-  ggsave(file, ax, width = 4, height = 0.9)
+  ggsave(file, ax, width = 3.6, height = 0.9)
 }
 
 # k-sensitivity
@@ -70,6 +70,12 @@ beffs_labs <- c("With batch effects", "Without batch effects")
 names(beffs_labs) <- c("With", "Without")
 imbalance_labs <- c("Batch-class balanced", "Batch-class imbalanced")
 names(imbalance_labs) <- c("Balanced", "Imbalanced")
+custom_theme <- theme(
+  legend.key.size = unit(4, "mm"),
+  title = element_text(size = 6),
+  axis.title.x = element_text(size = 6),
+  axis.title.y = element_text(size = 6)
+)
 
 # villani
 file <- "tmp/scrna/villani/villani-k.csv"
@@ -98,18 +104,10 @@ ax <- ggplot(villani_k, aes(x = Param, y = Value, col = Metric)) +
     sec.axis = sec_axis(trans = ~ . - y_offset, name = "LISI")
   ) +
   scale_color_manual(values = GGCOLS) +
-  labs(title = "Villani et al.", x = "k")
-file <- "tmp/fig/real/villani-k.jpg"
-ggsave(file, ax, width = 2.7, height = 2.7)
-
-# theme(
-#   legend.position = c(.99, .85),
-#   legend.justification = c("right", "top"),
-#   legend.box.just = "right",
-#   legend.key = element_rect(fill='transparent'),
-#   legend.background = element_rect(fill='transparent'),
-#   legend.title = element_blank()
-# ) +
+  labs(title = "Villani et al.", x = "k") +
+  custom_theme
+file <- "tmp/fig/real/villani-k.pdf"
+ggsave(file, ax, width = 2.8, height = 2.6)
 
 # halfmix
 file <- "tmp/scrna/halfmix/halfmix-k.csv"
@@ -138,9 +136,10 @@ ax <- ggplot(halfmix_k, aes(x = Param, y = Value, col = Metric)) +
     sec.axis = sec_axis(trans = ~ . - y_offset, name = "LISI")
   ) +
   scale_color_manual(values = GGCOLS) +
-  labs(title = "Zheng et al.", x = "k")
-file <- "tmp/fig/real/halfmix-k.jpg"
-ggsave(file, ax, width = 2.7, height = 2.7)
+  labs(title = "Zheng et al.", x = "k") +
+  custom_theme
+file <- "tmp/fig/real/halfmix-k.pdf"
+ggsave(file, ax, width = 2.8, height = 2.6)
 
 # cellbench
 file <- "tmp/scrna/cellbench/cellbench-k.csv"
@@ -171,6 +170,6 @@ ax <- ggplot(cellbench_k, aes(x = Param, y = Value, col = Metric)) +
   ) +
   scale_color_manual(values = GGCOLS) +
   labs(title = "Tian et al.", x = "k") +
-  theme(legend.key.size = unit(4, "mm"))
-file <- "tmp/fig/real/cellbench-k.jpg"
-ggsave(file, ax, width = 3.2, height = 2.7)
+  custom_theme
+file <- "tmp/fig/real/cellbench-k.pdf"
+ggsave(file, ax, width = 3.3, height = 2.6)

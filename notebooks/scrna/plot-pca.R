@@ -42,7 +42,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Villani et al.",
+    title = "Villani et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -61,8 +61,8 @@ ax_celltype <- ggplot_pca(
   scale_color_manual(values = class_cols) +
   custom_theme +
   guides(col = guide_legend(nrow = 2))
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without batch effects
@@ -75,7 +75,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Villani et al.",
+    title = "Villani et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -94,8 +94,8 @@ ax_celltype <- ggplot_pca(
   scale_color_manual(values = class_cols) +
   custom_theme +
   guides(col = guide_legend(nrow = 2))
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # halfmix
@@ -128,7 +128,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Zheng et al.",
+    title = "Zheng et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -146,8 +146,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without
@@ -160,7 +160,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Zheng et al.",
+    title = "Zheng et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -178,8 +178,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # cellbench
@@ -199,7 +199,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Tian et al.",
+    title = "Tian et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -217,8 +217,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without
@@ -231,7 +231,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Tian et al.",
+    title = "Tian et al. (scRNA-seq)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -249,8 +249,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # MAQC
@@ -277,7 +277,6 @@ log_maqc <- raw_maqc %>%
 # subsetting maqc
 maqc_bal <- log_maqc[, c(1:4, 6:9, 11:14, 16:19)]
 maqc_without <- log_maqc[, c(1:4, 6:9)]
-
 metadata_bal <- metadata_maqc[colnames(maqc_bal), ]
 metadata_without <- metadata_maqc[colnames(maqc_without), ]
 metadata_without[c(3, 4, 7, 8), 1] <- 2
@@ -292,7 +291,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "MAQC",
+    title = "MAQC (microarray)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -310,8 +309,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without
@@ -324,7 +323,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "MAQC",
+    title = "MAQC (microarray)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -342,8 +341,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # Yeoh et al.
@@ -364,7 +363,6 @@ levels(metadata_sid$label) <- c("Remission", "Relapse")
 metadata_sid$batch <- as.factor(metadata_sid$batch) 
 metadata_pid$label <- as.factor(metadata_pid$label)
 levels(metadata_pid$label) <- c("Remission", "Relapse")
-
 metadata_yeoh <- metadata_sid[colnames(raw_yeoh), ]
 
 # SCALE->REMOVE->FILTER->LOG
@@ -413,7 +411,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Yeoh et al.",
+    title = "Yeoh et al. (microarray)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -431,8 +429,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without
@@ -445,7 +443,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Yeoh et al.",
+    title = "Yeoh et al. (microarray)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -463,8 +461,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # westlake
@@ -524,7 +522,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Wang et al.",
+    title = "Wang et al. (proteomics)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -542,8 +540,8 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
 
 # without
@@ -556,7 +554,7 @@ ax_batch <- ggplot_pca(
   cex = 0.8, alpha = 0.7
 ) +
   labs(
-    title = "Wang et al.",
+    title = "Wang et al. (proteomics)",
     color = "Batch"
   ) +
   scale_color_manual(values = batch_cols) +
@@ -574,6 +572,6 @@ ax_celltype <- ggplot_pca(
   ) +
   scale_color_manual(values = class_cols) +
   custom_theme
-file <- sprintf("tmp/fig/%s/pca_without-%s.jpg", dataname, dataname)
-ggsave(file, ax_batch + ax_celltype, width = 4, height = 2.2)
+file <- sprintf("tmp/fig/%s/pca_without-%s.pdf", dataname, dataname)
+ggsave(file, ax_batch + ax_celltype, width = 3.6, height = 2)
 print(file)
