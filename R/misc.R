@@ -96,12 +96,11 @@ eval_batch <- function(
     if (metric == "rvp") {
       cat("Calculating RVP...", fill = TRUE)
       rvp_obj <- rvp(
-        as.array(Matrix::t(X)),
+        as.array(X),
         metadata[[batchname]],
-        metadata[[classname]],
-        ret.percent = FALSE
+        metadata[[classname]]
       )
-      scores[metric] <- rvp_obj$percent.batch
+      scores[metric] <- rvp_obj$RVP
     } else if (metric == "cms") {
       cat("Calculating CMS...", fill = TRUE)
       library(CellMixS)
@@ -143,7 +142,9 @@ eval_batch <- function(
       library(pvca)
       meta_metadata <- data.frame(labelDescription = colnames(metadata))
       pheno_data <- new(
-        "AnnotatedDataFrame", data = metadata, varMetadata = meta_metadata
+        "AnnotatedDataFrame",
+        data = data.frame(metadata),
+        varMetadata = meta_metadata
       )
       eset <- Biobase::ExpressionSet(
         assayData = data.matrix(X),

@@ -27,9 +27,9 @@ repeat {
 }
 rm(panc8)
 
-if (metric == "cms") {
+if (metric == "CMS") {
   sce <- as.SingleCellExperiment(panc8_sub)
-} else if (metric == "pvca") {
+} else if (metric == "PVCA") {
   library(Biobase)
   var_metadata <- data.frame(
     labelDescription = colnames(panc8_sub@meta.data),
@@ -44,10 +44,10 @@ if (metric == "cms") {
     assayData = as.matrix(GetAssayData(panc8_sub)),
     phenoData = pheno_data 
   )
-} else if (metric == "rvp") {
+} else if (metric == "RVP") {
   X_mat <- GetAssayData(panc8_sub)
   metadata <- panc8_sub@meta.data
-} else if (metric == "rvps") {
+} else if (metric == "RVPS") {
   X_mat <- GetAssayData(panc8_sub)
   metadata <- panc8_sub@meta.data
 } else {
@@ -59,38 +59,38 @@ rm(panc8_sub)
 # Benchmarking
 k <- n / 10 
 message(sprintf("Benchmarking: %s (n = %d)", metric, n))
-if (metric == "rvp") {
+if (metric == "RVP") {
   source("R/rvp.R")
   start <- proc.time()
   obj <- rvp.default(X_mat, metadata$tech, metadata$celltype)
   duration <- proc.time() - start 
-} else if (metric == "rvps") {
+} else if (metric == "RVPS") {
   source("R/rvp.R")
   start <- proc.time()
   obj <- rvp.sparseMatrix(X_mat, metadata$tech, metadata$celltype)
   duration <- proc.time() - start 
-} else if (metric == "gpca") {
+} else if (metric == "gPCA") {
   source("R/gpca.R")
   start <- proc.time()
   # Modified to fix error when nperm = 0
   obj <- gPCA(X_mat, metadata$tech, nperm = 0) 
   duration <- proc.time() - start 
-} else if (metric == "pvca") {
+} else if (metric == "PVCA") {
   library(pvca)
   start <- proc.time()
   obj <- pvcaBatchAssess(eset, c("tech", "celltype"), 0.6)
   duration <- proc.time() - start 
-} else if (metric == "cms") {
+} else if (metric == "CMS") {
   library(CellMixS)
   start <- proc.time()
   sce <- cms(sce, k = k, group = "tech")
   duration <- proc.time() - start 
-} else if (metric == "kbet") {
+} else if (metric == "kBET") {
   library(kBET)
   start <- proc.time()
   obj <- kBET(X_mat, metadata$tech, testSize = n, n_repeat = 1)
   duration <- proc.time() - start 
-} else if (metric == "lisi") {
+} else if (metric == "LISI") {
   library(lisi)
   start <- proc.time()
   obj <- compute_lisi(X_mat, metadata, c("tech"))

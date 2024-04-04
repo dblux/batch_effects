@@ -1,7 +1,6 @@
 library(ggplot2)
 library(cowplot)
 theme_set(theme_bw(base_size = 7))
-
 src_files <- list.files("R", full.names = TRUE)
 cat("Sourcing files:", fill = TRUE)
 for (f in src_files) {
@@ -17,56 +16,53 @@ metric_cols[6] <- "#BF80FF"
 names(metric_cols) <- metric_ord
 
 # CPU time
-file <- "tmp/benchmark/time.txt" 
+file <- "tmp/benchmark/rvp_sparse/time.txt" 
 time <- read.table(file, header = T, stringsAsFactors = T)
+time <- subset(time, metric != "RVPS")
 time$cpu.time <- time$user + time$system
 time$metric <- factor(time$metric, levels = metric_ord)
 
 xlab <- "Number of samples"
 ylab <- "CPU time (s)"
 ax <- ggplot(time, aes(x = n, y = cpu.time, col = metric)) +
-  geom_point(cex = CEX, show.legend = FALSE) +
-  geom_line(linewidth = CEX) +
+  geom_point(cex = cex, show.legend = FALSE) +
+  geom_line(linewidth = cex) +
   labs(x = xlab, y = ylab, col = "Metric") +
   theme(
     # legend.spacing.y = unit(1, "pt"),
-    legend.key.size = unit(4, "mm"),
-    legend.position = c(0.05, 1),
-    legend.justification = c("left", "top"),
+    legend.key.size = unit(5, "mm"),
+    # legend.position = c(0.05, 1),
+    # legend.justification = c("left", "top"),
     legend.box.just = "left",
     legend.key = element_rect(fill="transparent"),
     legend.background = element_rect(fill="transparent"),
-    legend.title = element_blank()
   ) +
-  scale_color_manual(values = metric_cols)
-#   scale_y_continuous(trans = "log10")
-
-file <- "tmp/fig/time.jpg"
-ggsave(file, ax, width = 4, height = 2.5)
+  scale_color_manual(values = metric_cols) +
+  scale_y_continuous(trans = "log10")
+file <- "tmp/fig/time.pdf"
+ggsave(file, ax, width = 3.5, height = 2)
 
 # Peak memory
-file <- "tmp/benchmark/memory.txt"
+file <- "tmp/benchmark/rvp_sparse/memory.txt"
 memory <- read.table(file, header = T, stringsAsFactors = T)
+memory <- subset(memory, metric != "RVPS")
 memory$maxsize <- memory$maxsize / 1e6
 memory$metric <- factor(memory$metric, levels = metric_ord)
 
 xlab <- "Number of samples"
 ylab <- "Peak memory usage (GB)"
 ax <- ggplot(memory, aes(x = n, y = maxsize, col = metric)) +
-  geom_point(cex = CEX, show.legend = F) +
-  geom_line(linewidth = CEX) +
+  geom_point(cex = cex, show.legend = F) +
+  geom_line(linewidth = cex) +
   labs(x = xlab, y = ylab, col = "Metric") +
   theme(
-    legend.key.size = unit(4, "mm"),
-    legend.position = c(0.05, 1),
-    legend.justification = c("left", "top"),
+    legend.key.size = unit(5, "mm"),
+    # legend.position = c(0.05, 1),
+    # legend.justification = c("left", "top"),
     legend.box.just = "left",
     legend.key = element_rect(fill = "transparent"),
     legend.background = element_rect(fill = "transparent"),
-    legend.title = element_blank()
   ) +
   scale_color_manual(values = metric_cols)
-#   scale_y_continuous(trans = "log10")
-
-file <- "tmp/fig/memory.jpg"
-ggsave(file, ax, width = 4, height = 2.5)
+file <- "tmp/fig/memory.pdf"
+ggsave(file, ax, width = 3.5, height = 2)
