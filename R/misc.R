@@ -95,7 +95,8 @@ eval_batch <- function(
   for (metric in metrics) {
     if (metric == "rvp") {
       cat("Calculating RVP...", fill = TRUE)
-      rvp_obj <- rvp(
+      library(RVP)
+      rvp_obj <- RVP(
         as.array(X),
         metadata[[batchname]],
         metadata[[classname]]
@@ -104,10 +105,22 @@ eval_batch <- function(
     } else if (metric == "cms") {
       cat("Calculating CMS...", fill = TRUE)
       library(CellMixS)
+      library(scater)
+      library(BiocSingular)
       sce <- SingleCellExperiment::SingleCellExperiment(
         list(logcounts = X), colData = metadata
       )
-      sce <- cms(sce, k = k.cms, group = batchname)
+      sce <- cms(
+        # scater: runPCA - defaults to ntop = 500
+        scater::runPCA(
+          sce, 
+          ncomponents = 50, 
+          ntop = nrow(sce), 
+          BSPARAM = IrlbaParam()
+        ),
+        k = k.cms, 
+        group = batchname
+      )
       sce_coldata <- sce@colData
       scores[metric] <- mean(sce@colData$cms)
     } else if (metric == "kbet") {
@@ -118,6 +131,8 @@ eval_batch <- function(
         metadata[[batchname]],
         k0 = k0,
         testSize = n,
+        do.pca = TRUE,
+        heuristic = FALSE,
         n_repeat = 1,
         verbose = TRUE
       )
@@ -126,8 +141,13 @@ eval_batch <- function(
     } else if (metric == "lisi") {
       cat("Calculating LISI...", fill = TRUE)
       library(lisi)
+      library(BiocSingular)
       lisi <- compute_lisi(
-        Matrix::t(X),
+        BiocSingular::runPCA(
+          Matrix::t(X),
+          rank = 50, 
+          BSPARAM = IrlbaParam()
+        )$x,
         metadata,
         c(batchname, classname),
         perplexity = perplexity

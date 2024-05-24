@@ -1,14 +1,17 @@
-#!/usr/bin/env Rscript
 library(pryr)
 library(Seurat)
 library(Matrix)
 
-# Command-line arguments
-args <- commandArgs(trailingOnly=TRUE)
-metric <- args[1]
-n <- as.numeric(args[2])
-outdir <- args[3]
+# PCA -> kNN -> Compute metric
+# kbET: svd - FNN::get.knn
+# kBET: Performs heuristics (find optimal k) and repeats to calculate statistics
+# LISI: No PCA - RANN::nn2
+# CMS: scater::runPCA - BiocNeighbors::findKNN (defaults to exact k-NN)
 
+
+metric <- "RVP"
+n <- 4000
+outdir <- NULL
 
 # Data
 file <- "data/panc8/panc8_sel.rds"
@@ -25,7 +28,6 @@ repeat {
   }
   set.seed(NULL)
 }
-rm(panc8)
 
 if (metric == "CMS") {
   sce <- as.SingleCellExperiment(panc8_sub)
@@ -54,7 +56,6 @@ if (metric == "CMS") {
   X_mat <- t(GetAssayData(panc8_sub))
   metadata <- panc8_sub@meta.data
 }
-rm(panc8_sub)
 
 # Benchmarking
 k <- n / 10 
@@ -69,21 +70,9 @@ if (metric == "RVP") {
   start <- proc.time()
   obj <- rvp.sparseMatrix(X_mat, metadata$tech, metadata$celltype)
   duration <- proc.time() - start 
-} else if (metric == "gPCA") {
-  source("R/gpca.R")
-  start <- proc.time()
-  # gPCA has been modified to fix error when nperm = 0
-  obj <- gPCA(X_mat, metadata$tech, nperm = 0) 
-  duration <- proc.time() - start 
-} else if (metric == "PVCA") {
-  library(pvca)
-  start <- proc.time()
-  obj <- pvcaBatchAssess(eset, c("tech", "celltype"), 0.6)
-  duration <- proc.time() - start 
 } else if (metric == "CMS") {
   library(CellMixS)
   library(scater)
-  library(BiocSingular)
   set.seed(1)
   start <- proc.time()
   sce <- cms(
@@ -94,13 +83,13 @@ if (metric == "RVP") {
       ntop = nrow(sce), 
       BSPARAM = IrlbaParam()
     ),
-    k = k, 
+    k = k,
     group = "tech"
   )
   duration <- proc.time() - start
 } else if (metric == "kBET") {
   library(kBET)
-  set.seed(1)
+  library(BiocSingular)
   start <- proc.time()
   obj <- kBET(
     X_mat,
@@ -115,32 +104,26 @@ if (metric == "RVP") {
 } else if (metric == "LISI") {
   library(lisi)
   library(BiocSingular)
-  set.seed(1)
+  set.seed(2)
   start <- proc.time()
   obj <- compute_lisi(
+    # BiocSingular: runPCA - PCA using approximate algorithms
     BiocSingular::runPCA(
       X_mat,
       rank = 50, 
       BSPARAM = IrlbaParam()
     )$x,
-    metadata,
-    c("tech")
+    metadata, c("tech")
   )
   duration <- proc.time() - start 
 }
 cat(sprintf("%s %d ", metric, n))
 cat(duration, fill = TRUE)
 
-# Save results
-file <- sprintf("%s%s-%d.rds", outdir, metric, n)
-message(sprintf("Saving results to: %s", file))
-message("==========\n")
-if (metric == "CMS") {
-  saveRDS(sce@colData, file)
-} else {
-  saveRDS(obj, file)
-}
 
-# check size of variable
-# print(pryr::object_size(X_mat, eset))
-# str(as.list(.GlobalEnv))
+print(mean(obj$tech)) # LISI 
+
+Rprof(memory.profiling = TRUE, interval=.002)
+obj <- RVP(X_mat, metadata$tech, metadata$celltype, use.sparse = TRUE)
+Rprof(NULL)
+summaryRprof(memory = 'both')

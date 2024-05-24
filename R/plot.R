@@ -1154,73 +1154,68 @@ plot_barchart <- function(
 }
 
 
-#  ## Plot: Parallel coordinates - Pct
-#  proba1 <- proba[, !(colnames(proba) == "p_wo_mrd")]
-#  long_proba <- melt(proba1, id = c("pid", "label"),
-#                    variable.name = "feature")
-#             
-#  ax_parallel <- ggplot(long_proba,
-#                        aes(feature, value, colour = label, group = pid)) +
-#    geom_line(show.legend = F) +
-#    scale_color_manual(values = COL_LABEL)
-#  
-#  ## PLOT: CDF
-#  emp_cdf <- ggplot(proba, aes(x = p, colour = label)) +
-#    stat_ecdf(show.legend = F) +
-#    scale_color_manual(values = COL_LABEL)
-#  
-#  ## PLOT: RELATIVE RISK & ODDS RATIO
-#  p_sorted <- proba[order(proba$p),]
-#  p_sorted$label <- as.numeric(as.character(p_sorted$label))
-#  p_sorted$total_le <- rank(p_sorted$p, ties.method = "max")
-#  p_sorted$total_g <- nrow(p_sorted) - p_sorted$total_le
-#  p_sorted$relapse_le <- sapply(p_sorted$total_le,
-#                                function(i) sum(p_sorted$label[1:i]))
-#  p_sorted$relapse_g <- sum(p_sorted$label) - p_sorted$relapse_le
-#  
-#  p_sorted <- within(
-#    p_sorted,
-#    relative_risk <- (relapse_le/total_le) / (relapse_g/total_g)
-#  )
-#  
-#  p_sorted <- within(
-#    p_sorted,
-#    odds_ratio <- (relapse_le/(total_le-relapse_le)) / (relapse_g/(total_g-relapse_g))
-#  )
-#                                 
-#  ax_rr_or <- ggplot(p_sorted) +
-#    geom_step(aes(p, relative_risk, colour = "RR"), direction = "hv") + 
-#    geom_step(aes(p, odds_ratio, colour = "OR"), direction = "hv") +
-#    scale_color_manual("",
-#                       breaks = c("RR", "OR"),
-#                       values = c("RR" = "orange", "OR" = "steelblue3")) +
-#    theme(axis.title.y = element_blank())
-#  
-#  ## Plot: ROC
-#  # ERM1 evaluated is not from global GSS model
-#  proba_x <- cbind(proba, erm = X_predict$erm1, d33_mrd = X_predict$mrd) # subset mrd
-#                                
-#  x_names <- c("p", "erm", "d33_mrd")
-#  # WARNING: Change bigger.positive according to features!
-#  bigger.positive <- c(F, T, F) # bigger means relapse
-#  
-#  # ROC can only be plotted when there are both positive and negative samples
-#  if (all(table(proba_x$label) != 0)) {
-#    ax_roc <- plot_roc(proba_x, "label", x_names)
-#    # Able to plot ROC
-#    ax2 <- plot_grid(ax_parallel, ax_roc,
-#                     ncol = 2, rel_widths = c(1.8, 1))
-#  } else{
-#    ax2 <- ax_parallel # unable to plot ROC
-#  }
-#  
-#  # Plot: MRD v.s. Risk of relapse
-#  mrd_p <- ggplot(proba_x) +
-#    geom_point(aes(p, log10(d33_mrd), colour = label),
-#               cex = 3, show.legend = F) +
-#    scale_color_manual(values = COL_LABEL)
-#                                
-#  ax1 <- plot_grid(ax_jitter, mrd_p,
-#                   ncol = 2, rel_widths = c(2.8, 1))
-#  
-#  fig <- plot_grid(ax1, ax2, nrow = 2)
+#' Plots cumulative sum of squares and RVP across features
+#'
+#' @param obj list returned by [RVP()]
+#' @param m numeric indicating the  number of features to plot
+#'
+#' @returns A ggplot object
+#'
+#' @keywords internal
+#' @noRd
+#'
+plot_rvp <- function(obj, m = NULL, cex = 1) {
+  # TODO: Require ggplot2 and cowplot
+  xlab <- "Feature index"
+  sum_sq <- obj$sum.squares
+  sum_sq <- sum_sq[rev(order(sum_sq$ss_total)), ]
+  RVP <- obj$RVP
+
+  if (is.numeric(m))
+    sum_sq <- sum_sq[seq_len(m), , drop = FALSE]
+
+  ax_ssb <- ggplot(sum_sq) +
+    geom_line(
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch)),
+      color = "blue"
+    ) +
+    labs(x = xlab, y = "Cumulative sum of squares batch")
+
+  ax_sst <- ggplot(sum_sq) +
+    geom_line(
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total)),
+      color = "chartreuse3"
+    ) +
+    labs(x = xlab, y = "Cumulative sum of squares total")
+
+  ax_rvp <- ggplot(sum_sq) +
+    geom_line(
+      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch) / cumsum(ss_total)),
+      col = "brown1"
+    ) +
+    geom_hline(yintercept = RVP, col = "darkgray", linetype = "dashed") +
+    labs(x = xlab, y = "Cumulative RVP")
+
+  full_rvp <- ax_rvp +
+    ylim(c(0, 1)) +
+    theme(
+      axis.title.x = element_blank(), 
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent", color = NA)
+    )
+
+  ax <- ggdraw() +
+    draw_plot(ax_rvp) +
+    draw_plot(
+      full_rvp,
+      x = 0.5, y = 0.35,
+      width = 0.45, height = 0.4
+    )
+
+  plot_grid(ax_ssb, ax_sst, ax, nrow = 1)
+}

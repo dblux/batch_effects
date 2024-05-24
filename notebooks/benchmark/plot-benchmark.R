@@ -16,7 +16,7 @@ metric_cols[6] <- "#BF80FF"
 names(metric_cols) <- metric_ord
 
 # CPU time
-file <- "tmp/benchmark/rvp_sparse/time.txt" 
+file <- "tmp/benchmark/rvp_sparse/rerun/time.txt"
 time <- read.table(file, header = T, stringsAsFactors = T)
 time <- subset(time, metric != "RVPS")
 time$cpu.time <- time$user + time$system
@@ -37,13 +37,14 @@ ax <- ggplot(time, aes(x = n, y = cpu.time, col = metric)) +
     legend.key = element_rect(fill="transparent"),
     legend.background = element_rect(fill="transparent"),
   ) +
-  scale_color_manual(values = metric_cols) +
-  scale_y_continuous(trans = "log10")
-file <- "tmp/fig/time.pdf"
+  scale_color_manual(values = metric_cols)
+  # scale_y_continuous(trans = "log10")
+
+file <- "tmp/fig/cputime.pdf"
 ggsave(file, ax, width = 3.5, height = 2)
 
 # Peak memory
-file <- "tmp/benchmark/rvp_sparse/memory.txt"
+file <- "tmp/benchmark/rvp_sparse/rerun/memory.txt"
 memory <- read.table(file, header = T, stringsAsFactors = T)
 memory <- subset(memory, metric != "RVPS")
 memory$maxsize <- memory$maxsize / 1e6
