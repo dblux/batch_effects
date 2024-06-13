@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-library(pryr)
 library(Seurat)
 library(Matrix)
 
@@ -8,11 +7,19 @@ args <- commandArgs(trailingOnly=TRUE)
 metric <- args[1]
 n <- as.numeric(args[2])
 outdir <- args[3]
+# design <- args[4]
 
 
-# Data
 file <- "data/panc8/panc8_sel.rds"
 panc8 <- readRDS(file)
+
+# # restrict to two batches and two classes
+# if (design == "two") {
+#   platforms <- c("indrop", "celseq2")
+#   celltypes <- c("alpha", "beta")
+#   panc8 <- panc8[, panc8$celltype %in% celltypes & panc8$tech %in% platforms]
+# }
+
 set.seed(1)
 repeat {
   message(sprintf("Sampling n = %d samples from panc8.", n))
@@ -27,6 +34,7 @@ repeat {
 }
 rm(panc8)
 
+# Load data
 if (metric == "CMS") {
   sce <- as.SingleCellExperiment(panc8_sub)
 } else if (metric == "PVCA") {
@@ -44,10 +52,7 @@ if (metric == "CMS") {
     assayData = as.matrix(GetAssayData(panc8_sub)),
     phenoData = pheno_data 
   )
-} else if (metric == "RVP") {
-  X_mat <- GetAssayData(panc8_sub)
-  metadata <- panc8_sub@meta.data
-} else if (metric == "RVPS") {
+} else if (metric %in% c("HVP", "HVPS")) {
   X_mat <- GetAssayData(panc8_sub)
   metadata <- panc8_sub@meta.data
 } else {
@@ -59,15 +64,15 @@ rm(panc8_sub)
 # Benchmarking
 k <- n / 10 
 message(sprintf("Benchmarking: %s (n = %d)", metric, n))
-if (metric == "RVP") {
-  source("R/rvp.R")
+if (metric == "HVP") {
+  source("R/HVP.R")
   start <- proc.time()
-  obj <- rvp.default(X_mat, metadata$tech, metadata$celltype)
+  obj <- .HVP(X_mat, metadata$tech, metadata$celltype)
   duration <- proc.time() - start 
-} else if (metric == "RVPS") {
-  source("R/rvp.R")
+} else if (metric == "HVPS") {
+  source("R/HVP.R")
   start <- proc.time()
-  obj <- rvp.sparseMatrix(X_mat, metadata$tech, metadata$celltype)
+  obj <- .HVP_sparseMatrix(X_mat, metadata$tech, metadata$celltype)
   duration <- proc.time() - start 
 } else if (metric == "gPCA") {
   source("R/gpca.R")
@@ -141,6 +146,3 @@ if (metric == "CMS") {
   saveRDS(obj, file)
 }
 
-# check size of variable
-# print(pryr::object_size(X_mat, eset))
-# str(as.list(.GlobalEnv))

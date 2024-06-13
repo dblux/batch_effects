@@ -1,6 +1,7 @@
 library(pryr)
 library(Seurat)
 library(Matrix)
+library(RVP)
 
 # PCA -> kNN -> Compute metric
 # kbET: svd - FNN::get.knn
@@ -28,6 +29,20 @@ repeat {
   }
   set.seed(NULL)
 }
+
+metadata <- panc8[[]]
+table(metadata$tech, metadata$celltype)
+table(metadata$celltype)
+table(metadata$tech)
+
+platforms <- c("indrop", "celseq2")
+celltypes <- c("alpha", "beta")
+
+panc8_sub1 <- panc8[
+  , panc8$celltype %in% celltypes & panc8$tech %in% platforms]
+
+metadata <- panc8_sub[[]]
+table(metadata$tech, metadata$celltype)
 
 if (metric == "CMS") {
   sce <- as.SingleCellExperiment(panc8_sub)
@@ -124,6 +139,6 @@ cat(duration, fill = TRUE)
 print(mean(obj$tech)) # LISI 
 
 Rprof(memory.profiling = TRUE, interval=.002)
-obj <- RVP(X_mat, metadata$tech, metadata$celltype, use.sparse = TRUE)
+obj <- .RVP(X_mat, metadata$tech, metadata$celltype, use.sparse = TRUE)
 Rprof(NULL)
 summaryRprof(memory = 'both')
