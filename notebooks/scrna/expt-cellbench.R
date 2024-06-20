@@ -22,6 +22,8 @@ cellbench <- readRDS(file)
 
 # QC
 # - Doublets identified using demuxlet
+# workaround for SSL cert error
+httr::set_config(httr::config(ssl_verifypeer = FALSE))
 ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 mapping <- getBM(
   attributes = c("ensembl_gene_id", "hgnc_symbol"),
@@ -40,7 +42,6 @@ cellbench$percent.ribo <-
   colSums(GetAssayData(cellbench, slot = "counts")[ribo_genes, ]) /
   cellbench$nCount_originalexp
 
-
 # FeatureScatter(
 #   cellbench_sub,
 #   feature1 = "percent.mito", feature2 = "percent.ribo",
@@ -51,6 +52,7 @@ cellbench$percent.ribo <-
 #   feature1 = "nCount_originalexp", feature2 = "nFeature_originalexp",
 #   group.by = "batch"
 # )
+
 cellbench_sub <- subset(
   cellbench,
   subset = demuxlet_cls == "SNG" &
@@ -61,12 +63,9 @@ cellbench_sub <- subset(
 table(cellbench_sub$celltype, cellbench_sub$batch)
 
 # Normalise data
-
 cellbench_sub <- NormalizeData(cellbench_sub)
 
-# Feature selection
-- Remove mito, ribo and sparse genes
-
+# Feature selection: Remove mito, ribo and sparse genes
 sparse_genes <- remove_sparse(
   GetAssayData(cellbench_sub, "counts"),
   0.95, cellbench_sub$celltype,
@@ -78,7 +77,6 @@ cellbench_sel <- cellbench_sub[!(rownames(cellbench_sub) %in% rm_genes), ]
 # table(in_all)
 
 # Subset
-
 # with batch effects
 tabnames <- list(
   unique(cellbench_sel$celltype),
@@ -238,7 +236,7 @@ ax1 <- data.frame(rvp = rvp_with$null.distribution) %>%
     labs(
       title = "Permutation null distribution (n = 1000)",
       subtitle = "Data with batch effects",
-      x = "RVP", y = "Count"
+      x = "HVP", y = "Count"
     ) +
     annotate(
       geom = "text", x = rvp_with$RVP - 0.01, y = 650,
@@ -246,7 +244,7 @@ ax1 <- data.frame(rvp = rvp_with$null.distribution) %>%
       color = "red", cex = 1.7, angle = 90
     )
 file <- "tmp/fig/permutations-with.pdf"
-ggsave(file, ax1, width = 2.6, height = 2)
+ggsave(file, ax1, width = 3.6, height = 2)
 
 ax2 <- data.frame(rvp = rvp_without$null.distribution) %>%
   ggplot() +
@@ -264,7 +262,7 @@ ax2 <- data.frame(rvp = rvp_without$null.distribution) %>%
     labs(
       title = "Permutation null distribution (n = 1000)",
       subtitle = "Data without batch effects",
-      x = "RVP", y = "Count"
+      x = "HVP", y = "Count"
     ) +
     annotate(
       geom = "text", x = rvp_without$RVP - 2e-4, y = 65,
@@ -272,4 +270,4 @@ ax2 <- data.frame(rvp = rvp_without$null.distribution) %>%
       color = "red", cex = 1.7, angle = 90
     )
 file <- "tmp/fig/permutations-without.pdf"
-ggsave(file, ax2, width = 2.6, height = 2)
+ggsave(file, ax2, width = 3.6, height = 2)

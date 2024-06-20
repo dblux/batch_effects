@@ -17,15 +17,15 @@ for (f in src_files) {
 }
 
 # villani
-- TPM values (Smartseq2)
-- Two batches: **Different plates**
-- Four classes: Human dendritic cell lines
+# - TPM values (Smartseq2)
+# - Two batches: **Different plates**
+# - Four classes: Human dendritic cell lines
 
 file <- "data/villani/processed/villani-seurat.rds"
 villani <- readRDS(file)
 
 # QC - Filter cells
-- No count data present, hence no nCounts, etc.
+# - No count data present, hence no nCounts, etc.
 
 villani$nFeature_tpm <- colSums(GetAssayData(villani) != 0)
 mito_genes <- rownames(villani)[grep("^MT-", rownames(villani))]
@@ -34,13 +34,11 @@ ribo_genes <- rownames(villani)[grep("^RP[SL]", rownames(villani))]
 total_ribo <- colSums(GetAssayData(villani[ribo_genes, ]))
 villani$percent.ribo <- total_ribo / colSums(GetAssayData(villani))
 
-
-FeatureScatter(
-  villani_sub,
-  feature1 = "nFeature_tpm", feature2 = "percent.ribo",
-  group.by = "batch"
-)
-
+# FeatureScatter(
+#   villani_sub,
+#   feature1 = "nFeature_tpm", feature2 = "percent.ribo",
+#   group.by = "batch"
+# )
 
 villani_sub <- subset(
   villani, subset = percent.ribo > 0.05 &
@@ -60,6 +58,11 @@ sparse_genes <- remove_sparse(
 )
 rm_genes <- union(ribo_genes, sparse_genes)
 villani_sel <- villani_sub[!(rownames(villani_sub) %in% rm_genes), ]
+
+villani_sel@assays$RNA@counts
+sum( == 0) / prod(dim(villani_sel))
+
+
 
 # Log transform data
 villani_sel@assays$log_tpm <- villani_sel@assays$tpm

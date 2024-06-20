@@ -1,16 +1,19 @@
 library(splatter)
 library(ggplot2)
+library(cowplot)
 library(RColorBrewer)
 library(pheatmap)
 theme_set(theme_bw(base_size = 6))
 source("R/plot.R")
 source("R/simulate.R")
+source("R/HVP.R")
+
 
 # Microarray simulation
 set.seed(1)
 crosstab <- matrix(5, 2, 2)
 simdata <- simulate_microarray(
-  30, crosstab,
+  1000, crosstab,
   delta = 1.0,
   gamma = 0.5,
   phi = 0.2,
@@ -365,3 +368,11 @@ ax <- ggplot(
   )
 file <- "tmp/fig/illustrations/feature.pdf"
 ggsave(file, ax, width = 3, height = 1.5)
+
+
+# Plot HVP sum of squares
+res <- HVP(simdata$X, simdata$metadata$batch, simdata$metadata$class)
+
+ax <- plot_hvp(res)
+file <- "tmp/fig/hvp.pdf"
+ggsave(file, ax, width = 4.5, height = 1.5)

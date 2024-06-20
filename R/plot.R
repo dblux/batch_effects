@@ -1154,68 +1154,50 @@ plot_barchart <- function(
 }
 
 
-#' Plots cumulative sum of squares and RVP across features
+#' Plots cumulative sum of squares and HVP across features
 #'
-#' @param obj list returned by [RVP()]
-#' @param m numeric indicating the  number of features to plot
+#' @param res result object from HVP 
+#' @param m numeric indicating the top number of features according to sum of
+#'   squares to plot. Defaults to plotting all features.
 #'
 #' @returns A ggplot object
+#'
+#' @import ggplot2 cowplot
 #'
 #' @keywords internal
 #' @noRd
 #'
-plot_rvp <- function(obj, m = NULL, cex = 1) {
-  # TODO: Require ggplot2 and cowplot
+plot_hvp <- function(res, m = NULL) {
   xlab <- "Feature index"
-  sum_sq <- obj$sum.squares
-  sum_sq <- sum_sq[rev(order(sum_sq$ss_total)), ]
-  RVP <- obj$RVP
+  # sort by sum of squares total in decreasing order
+  ss <- res$sum.squares[rev(order(res$sum.squares[, "ss_total"])), ]
+  HVP <- res$HVP
 
-  if (is.numeric(m))
-    sum_sq <- sum_sq[seq_len(m), , drop = FALSE]
+  if (!is.null(m))
+    ss <- ss[seq_len(m), , drop = FALSE]
 
-  ax_ssb <- ggplot(sum_sq) +
+  ax_ssb <- ggplot(ss) +
     geom_line(
-      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch)),
+      aes(x = seq_len(nrow(ss)), y = cumsum(ss_batch)),
       color = "blue"
     ) +
     labs(x = xlab, y = "Cumulative sum of squares batch")
 
-  ax_sst <- ggplot(sum_sq) +
+  ax_sst <- ggplot(ss) +
     geom_line(
-      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_total)),
+      aes(x = seq_len(nrow(ss)), y = cumsum(ss_total)),
       color = "chartreuse3"
     ) +
     labs(x = xlab, y = "Cumulative sum of squares total")
 
-  ax_rvp <- ggplot(sum_sq) +
+  ax_hvp <- ggplot(ss) +
     geom_line(
-      aes(x = seq_len(nrow(sum_sq)), y = cumsum(ss_batch) / cumsum(ss_total)),
+      aes(x = seq_len(nrow(ss)), y = cumsum(ss_batch) / cumsum(ss_total)),
       col = "brown1"
     ) +
-    geom_hline(yintercept = RVP, col = "darkgray", linetype = "dashed") +
-    labs(x = xlab, y = "Cumulative RVP")
+    geom_hline(yintercept = HVP, col = "darkgray", linetype = "dashed") +
+    labs(x = xlab, y = "Cumulative HVP") +
+    ylim(0, 1)
 
-  full_rvp <- ax_rvp +
-    ylim(c(0, 1)) +
-    theme(
-      axis.title.x = element_blank(), 
-      axis.text.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.title.y = element_blank(),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      panel.background = element_rect(fill = "transparent"),
-      plot.background = element_rect(fill = "transparent", color = NA)
-    )
-
-  ax <- ggdraw() +
-    draw_plot(ax_rvp) +
-    draw_plot(
-      full_rvp,
-      x = 0.5, y = 0.35,
-      width = 0.45, height = 0.4
-    )
-
-  plot_grid(ax_ssb, ax_sst, ax, nrow = 1)
+  plot_grid(ax_ssb, ax_sst, ax_hvp, nrow = 1)
 }

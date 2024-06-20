@@ -1,4 +1,4 @@
-library(magrittr)
+library(dplyr)
 library(scater)
 library(ggplot2)
 theme_set(theme_bw(base_size = 7))
@@ -12,64 +12,70 @@ for (f in src_files) {
 }
 
 
-## Compile results: batch_scale v.s. values
-results_bal <- results_imbal <- list()
-niter <- 5
-batch_scales <- c(seq(0.00, 0.09, 0.01), seq(0.1, 0.3, 0.04))
-for (batch_scale in batch_scales) {
-  for (i in 1:niter) {
-    file <- sprintf("tmp/scrna/splat/results-%.2f-%02d.rds", batch_scale, i)
-    results1 <- readRDS(file)
-    file <- sprintf("tmp/scrna/splat/gpca_pvca-%.2f-%02d.rds", batch_scale, i)
-    results2 <- readRDS(file)
-    # Balanced: rvp, ... 
-    obj <- results1[[1]]
-    k <- obj$kbet$params$k0
-    rvp <- obj$rvp$percent.batch
-    cms <- mean(obj$cms$cms)
-    kbet <- obj$kbet$summary$kBET.observed[1]
-    lisi <- mean(obj$lisi$Batch)
-    # Balanced: gpca, pvca
-    obj2 <- results2[[1]]
-    gpca <- obj2$gpca$delta
-    pvca <- obj2$pvca$dat[3]
-    values_bal <- data.frame(
-      batch_scale = batch_scale,
-      batch_var = batch_scale ^ 2,
-      batch_class = "balanced",
-      metric = c("RVP", "CMS", "kBET", "LISI", "gPCA", "PVCA"),
-      value = c(rvp, cms, kbet, lisi, gpca, pvca)
-    )
-    results_bal <- append(results_bal, list(values_bal))
-    # Imbalanced: rvp, ... 
-    obj <- results1[[2]]
-    k <- obj$kbet$params$k0
-    rvp <- obj$rvp$percent.batch
-    cms <- mean(obj$cms$cms)
-    kbet <- obj$kbet$summary$kBET.observed[1]
-    lisi <- mean(obj$lisi$Batch)
-    # Imbalanced: gpca, pvca 
-    obj2 <- results2[[2]]
-    gpca <- obj2$gpca$delta
-    pvca <- obj2$pvca$dat[3]
-    gpca <- obj2$gpca$delta
-    pvca <- obj2$pvca$dat[3]
-    values_imbal <- data.frame(
-      batch_scale = batch_scale,
-      batch_var = batch_scale ^ 2,
-      batch_class = "imbalanced",
-      metric = c("RVP", "CMS", "kBET", "LISI", "gPCA", "PVCA"),
-      value = c(rvp, cms, kbet, lisi, gpca, pvca)
-    )
-    results_imbal <- append(results_imbal, list(values_imbal))
-  }
-}
-metrics_bal <- do.call(rbind, results_bal)
-metrics_imbal <- do.call(rbind, results_imbal)
-metrics <- rbind(metrics_bal, metrics_imbal)
+# ## Compile results: batch_scale v.s. values
+# results_bal <- results_imbal <- list()
+# niter <- 5
+# batch_scales <- c(seq(0.00, 0.09, 0.01), seq(0.1, 0.3, 0.04))
+# for (batch_scale in batch_scales) {
+#   for (i in 1:niter) {
+#     file <- sprintf("tmp/scrna/splat/results-%.2f-%02d.rds", batch_scale, i)
+#     results1 <- readRDS(file)
+#     file <- sprintf("tmp/scrna/splat/gpca_pvca-%.2f-%02d.rds", batch_scale, i)
+#     results2 <- readRDS(file)
+#     # Balanced: hvp, ... 
+#     obj <- results1[[1]]
+#     k <- obj$kbet$params$k0
+#     hvp <- obj$rvp$percent.batch
+#     cms <- mean(obj$cms$cms)
+#     kbet <- obj$kbet$summary$kBET.observed[1]
+#     lisi <- mean(obj$lisi$Batch)
+#     # Balanced: gpca, pvca
+#     obj2 <- results2[[1]]
+#     gpca <- obj2$gpca$delta
+#     pvca <- obj2$pvca$dat[3]
+#     values_bal <- data.frame(
+#       batch_scale = batch_scale,
+#       batch_var = batch_scale ^ 2,
+#       batch_class = "balanced",
+#       metric = c("HVP", "CMS", "kBET", "LISI", "gPCA", "PVCA"),
+#       value = c(hvp, cms, kbet, lisi, gpca, pvca)
+#     )
+#     results_bal <- append(results_bal, list(values_bal))
+#     # Imbalanced: hvp, ... 
+#     obj <- results1[[2]]
+#     k <- obj$kbet$params$k0
+#     hvp <- obj$rvp$percent.batch
+#     cms <- mean(obj$cms$cms)
+#     kbet <- obj$kbet$summary$kBET.observed[1]
+#     lisi <- mean(obj$lisi$Batch)
+#     # Imbalanced: gpca, pvca 
+#     obj2 <- results2[[2]]
+#     gpca <- obj2$gpca$delta
+#     pvca <- obj2$pvca$dat[3]
+#     gpca <- obj2$gpca$delta
+#     pvca <- obj2$pvca$dat[3]
+#     values_imbal <- data.frame(
 
+#       batch_scale = batch_scale,
+#       batch_var = batch_scale ^ 2,
+#       batch_class = "imbalanced",
+#       metric = c("HVP", "CMS", "kBET", "LISI", "gPCA", "PVCA"),
+#       value = c(hvp, cms, kbet, lisi, gpca, pvca)
+#     )
+#     results_imbal <- append(results_imbal, list(values_imbal))
+#   }
+# }
+# metrics_bal <- do.call(rbind, results_bal)
+# metrics_imbal <- do.call(rbind, results_imbal)
+# metrics <- rbind(metrics_bal, metrics_imbal)
+# 
+# file <- "tmp/scrna/splat/splat-metrics.csv"
+# write.csv(metrics, file, row.names = FALSE)
+
+
+## Plot: Metrics
 file <- "tmp/scrna/splat/splat-metrics.csv"
-write.csv(metrics, file, row.names = FALSE)
+metrics <- read.csv(file, stringsAsFactors = TRUE)
 
 splat_summary <- metrics %>%
   group_by(batch_var, metric, batch_class) %>%
@@ -77,14 +83,18 @@ splat_summary <- metrics %>%
     mean = mean(value),
     sd = sd(value)
   )
-metric_order <- c("RVP", "kBET", "CMS", "LISI", "gPCA", "PVCA")
+metric_order <- c("HVP", "kBET", "CMS", "LISI", "gPCA", "PVCA")
 splat_summary$metric <- factor(splat_summary$metric, levels = metric_order)
+levels(splat_summary$batch_class) <- c(
+  "Batch-class balanced",
+  "Batch-class imbalanced"
+)
 
 GGCOLS <- ggplot_palette(6)
 GGCOLS[6] <- "#BF80FF"
-names(GGCOLS) <- c("RVP", "gPCA", "PVCA", "CMS", "kBET", "LISI")
+names(GGCOLS) <- c("HVP", "gPCA", "PVCA", "CMS", "kBET", "LISI")
 ax <- splat_summary %>%
-  subset(metric %in% c("RVP", "CMS", "kBET", "LISI")) %>%
+  subset(metric %in% c("HVP", "CMS", "kBET", "LISI")) %>%
   ggplot(aes(
     x = batch_var, y = mean,
     colour = factor(metric, levels = metric_order)
@@ -155,33 +165,34 @@ for (batch_scale in batch_scales) {
     batch_vars <- c(batch_vars, batch_var)
     # Total variance of logcounts 
     datasets <- readRDS(file2)
-    total_var_bal <- sum(rowVars(assay(datasets$bal)))
-    total_var_imbal <- sum(rowVars(assay(datasets$imbal)))
+    total_var_bal <- sum(rowVars(logcounts(datasets$bal)))
+    total_var_imbal <- sum(rowVars(logcounts(datasets$imbal)))
     total_vars_bal <- c(total_vars_bal, total_var_bal)
     total_vars_imbal <- c(total_vars_imbal, total_var_imbal)
   }
 }
 
-splat_vars <- data.frame(
-  batch_scale = rep(rep(batch_scales, each = 5), 2),
-  rep = rep(1:5, 32),
-  batch_class = rep(c("balanced", "imbalanced"), each = 80),
-  observed_var = rep(batch_vars, 2),
-  data_var = c(total_vars_bal, total_vars_imbal)
-)
-file <- "tmp/scrna/splat/splat-var.csv"
-write.csv(splat_vars, file, row.names = FALSE)
+
+# splat_vars <- data.frame(
+#   batch_scale = rep(rep(batch_scales, each = 5), 2),
+#   rep = rep(1:5, 32),
+#   batch_class = rep(c("balanced", "imbalanced"), each = 80),
+#   observed_var = rep(batch_vars, 2),
+#   data_var = c(total_vars_bal, total_vars_imbal)
+# )
+# file <- "tmp/scrna/splat/splat-var.csv"
+# write.csv(splat_vars, file, row.names = FALSE)
 
 ## Plot: Estimated v.s. observed batch effects variance
 file <- "tmp/scrna/splat/splat-var.csv"
 splat_vars <- read.csv(file, stringsAsFactors = TRUE)
 
-file <- "tmp/scrna/splat/splat-metrics.csv"
+file <- "tmp/scrna/splat/splat-metrics-old.csv"
 splat_metrics <- read.csv(file)
 
-splat_rvp <- subset(splat_metrics, metric == "RVP")
-splat_vars$rvp <- splat_rvp$value
-splat_vars$estimated_var <- splat_vars$rvp * splat_vars$data_var
+splat_hvp <- subset(splat_metrics, metric == "RVP")
+splat_vars$hvp <- splat_hvp$value
+splat_vars$estimated_var <- splat_vars$hvp * splat_vars$data_var
 levels(splat_vars$batch_class) <- c(
   "Batch-class balanced", "Batch-class imbalanced"
 )
@@ -200,12 +211,12 @@ ax <- ggplot(splat_vars) +
   ) +
   annotate(
     geom = "text", x = 225, y = 265,
-    label = "Perfect estimate",
+    label = "Ideal estimate",
     color = "darkgray", cex = 1.8, angle = 54
   ) +
   theme(
     legend.key.size = unit(4, "mm"),
     legend.title = element_text(size = 6)
   )
-file <- "tmp/fig/splat/rvp-vars.pdf"
+file <- "tmp/fig/splat/hvp-vars.pdf"
 ggsave(file, ax, height = 2.2, width = 7.4)

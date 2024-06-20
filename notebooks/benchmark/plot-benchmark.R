@@ -10,16 +10,19 @@ for (f in src_files) {
 
 
 cex <- 0.5
-metric_ord <- c("RVP", "gPCA", "PVCA", "CMS", "kBET", "LISI")
+metric_ord <- c("HVP", "gPCA", "PVCA", "CMS", "kBET", "LISI")
 metric_cols <- ggplot_palette(6)
 metric_cols[6] <- "#BF80FF"
 names(metric_cols) <- metric_ord
 
 # CPU time
-file <- "tmp/benchmark/rvp_sparse/rerun/time.txt"
+file <- "tmp/benchmark/hvp/time3.txt"
 time <- read.table(file, header = T, stringsAsFactors = T)
-time <- subset(time, metric != "RVPS")
+# time <- subset(time, metric != "HVPS")
 time$cpu.time <- time$user + time$system
+
+time[order(time$n, time$metric), ]
+
 time$metric <- factor(time$metric, levels = metric_ord)
 
 xlab <- "Number of samples"
@@ -37,18 +40,21 @@ ax <- ggplot(time, aes(x = n, y = cpu.time, col = metric)) +
     legend.key = element_rect(fill="transparent"),
     legend.background = element_rect(fill="transparent"),
   ) +
-  scale_color_manual(values = metric_cols)
-  # scale_y_continuous(trans = "log10")
-
-file <- "tmp/fig/cputime.pdf"
+  scale_color_manual(values = metric_cols) +
+  scale_y_continuous(trans = "log10")
+file <- "tmp/fig/log-cputime.pdf"
 ggsave(file, ax, width = 3.5, height = 2)
 
 # Peak memory
-file <- "tmp/benchmark/rvp_sparse/rerun/memory.txt"
+# file <- "tmp/benchmark/rvp_sparse/rerun/memory.txt"
+file <- "tmp/benchmark/hvp/memory3.txt"
 memory <- read.table(file, header = T, stringsAsFactors = T)
-memory <- subset(memory, metric != "RVPS")
+memory <- subset(memory, metric != "HVPS")
 memory$maxsize <- memory$maxsize / 1e6
+
 memory$metric <- factor(memory$metric, levels = metric_ord)
+
+memory[order(memory$n, memory$metric), ]
 
 xlab <- "Number of samples"
 ylab <- "Peak memory usage (GB)"
