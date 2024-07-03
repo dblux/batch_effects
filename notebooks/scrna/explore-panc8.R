@@ -43,12 +43,22 @@ panc8_sel <- panc8[!(rownames(panc8) %in% sparse_genes), ]
 file <- "data/panc8/panc8_sel.rds"
 saveRDS(panc8_sel, file)
 
+# Load processed data
+file <- "data/panc8/panc8_sel.rds"
+panc8_sel <- readRDS(file)
+
+batches <- c("indrop3", "smartseq2", "celseq2")
+panc8_3batch <- panc8[, panc8$dataset %in% batches]
+
+y <- panc8_3batch[[]]
+table(panc8_3batch$dataset, panc8_3batch$celltype)
+
 # Subset data
-- Data sets: indrop3, smartseq2
-- Cell types: alpha, ductal
+# - Data sets: indrop3, smartseq2
+# - Cell types: alpha, ductal
 ## Expt: Degrees of imbalance
-- 2:2, 2:3, 2:4, 2:5, 2:6
-- Each batch: 480 cells
+# - 2:2, 2:3, 2:4, 2:5, 2:6
+# - Each batch: 480 cells
 metadata <- panc2fltr@meta.data[c("celltype", "dataset")]
 smartseq2_alpha <- which(metadata[["celltype"]] == "alpha" & metadata[["dataset"]] == "smartseq2")
 smartseq2_ductal <- which(metadata[["celltype"]] == "ductal" & metadata[["dataset"]] == "smartseq2")

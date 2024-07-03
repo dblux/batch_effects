@@ -105,7 +105,7 @@ ax <- splat_summary %>%
   geom_line(linewidth = 0.4, show.legend = FALSE) +
   geom_errorbar(
     aes(ymin = mean - sd, ymax = mean + sd),
-    width = 0.001, linewidth = 0.3,
+    width = 0.0017, linewidth = 0.2,
     color = "grey55"
   ) +
   scale_y_reverse() +

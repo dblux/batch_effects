@@ -59,10 +59,13 @@ sparse_genes <- remove_sparse(
 rm_genes <- union(ribo_genes, sparse_genes)
 villani_sel <- villani_sub[!(rownames(villani_sub) %in% rm_genes), ]
 
-villani_sel@assays$RNA@counts
-sum( == 0) / prod(dim(villani_sel))
+logcnts <- GetAssayData(villani_sel)
+pct_zero <- rowSums(logcnts == 0) / ncol(logcnts) 
+pdf("tmp/fig/villani-missingness.pdf")
+hist(pct_zero)
+dev.off()
 
-
+sum(logcnts == 0) / prod(dim(villani_sel))
 
 # Log transform data
 villani_sel@assays$log_tpm <- villani_sel@assays$tpm
