@@ -1,4 +1,5 @@
 library(dplyr)
+
 library(scater)
 library(ggplot2)
 theme_set(theme_bw(base_size = 7))
@@ -190,12 +191,14 @@ splat_vars <- read.csv(file, stringsAsFactors = TRUE)
 file <- "tmp/scrna/splat/splat-metrics-old.csv"
 splat_metrics <- read.csv(file)
 
+
 splat_hvp <- subset(splat_metrics, metric == "RVP")
 splat_vars$hvp <- splat_hvp$value
 splat_vars$estimated_var <- splat_vars$hvp * splat_vars$data_var
 levels(splat_vars$batch_class) <- c(
   "Batch-class balanced", "Batch-class imbalanced"
 )
+
 
 ax <- ggplot(splat_vars) +
   facet_wrap(~batch_class) +
@@ -211,8 +214,8 @@ ax <- ggplot(splat_vars) +
   ) +
   annotate(
     geom = "text", x = 225, y = 265,
-    label = "Ideal estimate",
-    color = "darkgray", cex = 1.8, angle = 54
+    label = "Identity line (y = x)",
+    color = "darkgray", cex = 1.8, angle = 55
   ) +
   theme(
     legend.key.size = unit(4, "mm"),
@@ -220,3 +223,75 @@ ax <- ggplot(splat_vars) +
   )
 file <- "tmp/fig/splat/hvp-vars.pdf"
 ggsave(file, ax, height = 2.2, width = 7.4)
+
+
+##### Investigate observed batch effects variance #####
+
+# rds file contains parameters and latent variables of simulation
+file1 <- "data/simulated/scrna/loc0/splat-scale_0.26-01.rds"
+params <- readRDS(file1)
+
+# rds file contains both batch-class balanced and imbalanced simulated data
+file2 <- "data/simulated/scrna/loc0/datasets-0.26-01.rds"
+datasets <- readRDS(file2)
+
+pdf("tmp/fig/gamma.pdf")
+curve(dgamma(x, shape, rate), from = 0, to = 3)
+dev.off()
+
+pdf("tmp/fig/hist-basegenemeans.pdf")
+hist(latent_vars$BaseGeneMean, breaks = 50)
+dev.off()
+
+shape <- 0.6
+rate <- 0.3
+pgamma(1, shape, rate)
+
+latent_vars <- rowData(params)
+head(latent_vars)
+summary(latent_vars$BaseGeneMean)
+summary(latent_vars$GeneMean)
+summary(latent_vars$BatchFacBatch1)
+
+sum(latent_vars$BaseGeneMean < 1)
+
+fac_genes1 <- latent_vars$BatchFacBatch1 * latent_vars$GeneMean
+fac_genes2 <- latent_vars$BatchFacBatch2 * latent_vars$GeneMean
+sum(fac_genes1 < 1 & fac_genes2 < 1)
+head(fac_genes1)
+head(fac_genes2)
+
+pdf("tmp/fig/splat-fac_genes.pdf")
+hist(fac_genes_fltr)
+dev.off()
+
+# percentage of zero values
+x <- logcounts(datasets$bal)
+sum(x == 0) / 4e7
+
+#####
+
+splat_vars %>%
+  subset(rep == 1, select = c(-rep)) %>%
+  print()
+
+ax <- splat_vars %>%
+  subset(batch_class == "Batch-class balanced") %>%
+  ggplot() +
+    geom_point(aes(x = observed_var / 10000, y = hvp))
+file <- "tmp/fig/obs-hvp.pdf"
+ggsave(file, ax, height = 2.2, width = 2.2)
+
+library(splatter)
+
+params <- newSplatParams()
+params <- setParams(
+  params,
+  nGenes = 10000,
+  batchCells = c(3200, 3200),
+  group.prob = c(0.5, 0.5),
+  batch.facLoc = 0, # log-normal
+  batch.facScale = 0.3 # log-normal
+)
+cat(paste0("Seed: ",params@seed), fill = TRUE)
+splat <- splatSimulate(params, method = "groups")

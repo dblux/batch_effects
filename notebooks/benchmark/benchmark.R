@@ -52,8 +52,8 @@ if (metric == "CMS") {
     assayData = as.matrix(GetAssayData(panc8_sub)),
     phenoData = pheno_data 
   )
-} else if (metric %in% c("HVP", "HVPS")) {
-  X_mat <- GetAssayData(panc8_sub)
+} else if (metric == "HVP") {
+  X_mat <- as.matrix(GetAssayData(panc8_sub))
   metadata <- panc8_sub@meta.data
 } else {
   X_mat <- t(GetAssayData(panc8_sub))

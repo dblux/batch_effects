@@ -40,11 +40,12 @@ HVP <- function(x, ...) UseMethod("HVP", x)
 #'   By default, no permutation test is performed.
 #' @param use.sparse logical indicating whether to use sparse matrices when
 #'   computing HVP. N.B. Using sparse matrices may lead to slight increase
-#'  in run time. 
+#'  in run time.
 #'
 #' @details Default S3 method is for class data frame or matrix with
 #'   dimensions (nfeatures, nsamples).
 #'
+#' @import Matrix
 #' @importFrom progress progress_bar
 #' @importFrom utils capture.output
 #'
@@ -56,8 +57,12 @@ HVP.default <- function(
   nperm = 0, use.sparse = FALSE,
   ...
 ) {
+  # Missing values
+  if (any(is.na(x))) # is.na allocates memory
+    x[is.na(x)] <- 0
+
   if (!use.sparse) {
-    res <- .HVP(x, batch, cls)
+    res <- .HVP(as.matrix(x), batch, cls)
   } else {
     res <- .HVP_sparseMatrix(x, batch, cls)
   }
@@ -107,6 +112,11 @@ HVP.Seurat <- function(
   if (!requireNamespace("SeuratObject", quietly = TRUE))
     stop("Please install SeuratObject package!")
 
+  metadata <- x[[]]
+  stopifnot(batchname %in% colnames(metadata))
+  if (!is.null(classname))
+    stopifnot(all(classname %in% colnames(metadata)))
+
   # GetAssayData is for Seurat assay v3/v4
   assay_data <- SeuratObject::GetAssayData(x)
   batch <- x@meta.data[[batchname]]
@@ -142,6 +152,11 @@ HVP.SummarizedExperiment <- function(
   if (!requireNamespace("SummarizedExperiment", quietly = TRUE))
     stop("Please install SummarizedExperiment package!")
 
+  metadata <- SummarizedExperiment::colData(x)
+  stopifnot(batchname %in% colnames(metadata))
+  if (!is.null(classname))
+    stopifnot(all(classname %in% colnames(metadata)))
+
   assay_data <- if (is.null(assayname) || is.na(assayname)) {
     SummarizedExperiment::assay(x)
   } else {
@@ -175,14 +190,6 @@ HVP.SummarizedExperiment <- function(
     # Use NA as is.na works on lists
     message("Only one batch present!")
     return(list(HVP = 0, sum.squares = NA)) # only one batch is present
-  }
-  ### MISSING VALUES ###
-  # Check for missing values if called from global env or call name is .HVP().
-  # I.e. Do not check for missing values when function is called recursively.
-  # S3 method dispatch also returns .HVP().
-  if (sys.nframe() == 1 || identical(deparse(sys.call()[1]), ".HVP()")) {
-    if (any(is.na(X))) # is.na allocates memory
-      X[is.na(X)] <- 0
   }
 
   ### COMPUTE HVP ###
@@ -262,17 +269,6 @@ HVP.SummarizedExperiment <- function(
     # Use NA as is.na works on lists
     message("Only one batch present!")
     return(list(HVP = 0, sum.squares = NA)) # only one batch is present
-  }
-  ### MISSING VALUES ###
-  # Check for missing values if called from global env or call name is .HVP().
-  # I.e. Do not check for missing values when function is called recursively.
-  # S3 method dispatch also returns .HVP().
-  if (
-    sys.nframe() == 1 ||
-    identical(deparse(sys.call()[1]), ".HVP_sparseMatrix()")
-  ) {
-    if (any(is.na(X))) # is.na allocates memory
-      X[is.na(X)] <- 0
   }
   
   ### COMPUTE HVP ###

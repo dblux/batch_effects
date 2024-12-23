@@ -105,22 +105,38 @@ file <- "tmp/microarray/magnitude/short_imbal.csv"
 short_imbal <- read.csv(file)
 
 balance_cols <- balance_palette[c(2, 8)]
-names(balance_cols) <- c("Balanced", "Imbalanced")
+names(balance_cols) <- c("Batch-class balanced", "Batch-class imbalanced")
 ax <- ggplot() +
   geom_line(
-    aes(x = theoretical_batchvar, y = observed_batchvar, color = "Balanced"),
+    aes(
+      x = theoretical_batchvar,
+      y = observed_batchvar,
+      color = "Batch-class balanced"
+    ),
     data = short_bal, linetype = "twodash"
   ) +
   geom_point(
-    aes(x = theoretical_batchvar, y = observed_batchvar, color = "Balanced"),
+    aes(
+      x = theoretical_batchvar,
+      y = observed_batchvar,
+      color = "Batch-class balanced"
+    ),
     data = short_bal, cex = 1, alpha = 0.7
   ) +
   geom_line(
-    aes(x = theoretical_batchvar, y = observed_batchvar, color = "Imbalanced"),
+    aes(
+      x = theoretical_batchvar,
+      y = observed_batchvar,
+      color = "Batch-class imbalanced"
+    ),
     data = short_imbal, linetype = "dashed"
   ) +
   geom_point(
-    aes(x = theoretical_batchvar, y = observed_batchvar, color = "Imbalanced"),
+    aes(
+      x = theoretical_batchvar,
+      y = observed_batchvar,
+      color = "Batch-class imbalanced"
+    ),
     data = short_imbal, cex = 1, alpha = 0.7
   ) +
   scale_color_manual(values = balance_cols) +
@@ -129,7 +145,7 @@ ax <- ggplot() +
     y = observed_lab
   ) +
   theme(
-    legend.position = c(0.01, 1.04),
+    legend.position = c(0.01, 1.00),
     legend.justification = c("left", "top"),
     legend.box.just = "left",
     legend.key = element_rect(fill='transparent'),
@@ -137,7 +153,7 @@ ax <- ggplot() +
     legend.background = element_rect(fill='transparent'),
     legend.title = element_blank()
   )
-file <- "tmp/fig/microarray/magnitude/observed-theoretical.pdf"
+file <- "tmp/fig/microarray/magnitude/observed-theoretical1.pdf"
 ggsave(file, ax, width = 2.4, height = 2.4)
 
 # # Consolidate results

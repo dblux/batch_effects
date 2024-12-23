@@ -16,14 +16,13 @@ metric_cols[6] <- "#BF80FF"
 names(metric_cols) <- metric_ord
 
 # CPU time
-file <- "tmp/benchmark/hvp/time3.txt"
+file <- "tmp/benchmark/time4.txt"
 time <- read.table(file, header = T, stringsAsFactors = T)
 # time <- subset(time, metric != "HVPS")
 time$cpu.time <- time$user + time$system
 
-time[order(time$n, time$metric), ]
-
 time$metric <- factor(time$metric, levels = metric_ord)
+time[order(time$n, time$metric), ]
 
 xlab <- "Number of samples"
 ylab <- "CPU time (s)"
@@ -47,13 +46,12 @@ ggsave(file, ax, width = 3.5, height = 2)
 
 # Peak memory
 # file <- "tmp/benchmark/rvp_sparse/rerun/memory.txt"
-file <- "tmp/benchmark/hvp/memory3.txt"
+file <- "tmp/benchmark/memory4.txt"
 memory <- read.table(file, header = T, stringsAsFactors = T)
 memory <- subset(memory, metric != "HVPS")
 memory$maxsize <- memory$maxsize / 1e6
 
 memory$metric <- factor(memory$metric, levels = metric_ord)
-
 memory[order(memory$n, memory$metric), ]
 
 xlab <- "Number of samples"
